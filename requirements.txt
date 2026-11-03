@@ -1,0 +1,5 @@
+discord.py==2.7.1
+xai-sdk==1.21.0
+python-dotenv==1.2.4
+dateparser==1.4.3
+tzdata==2026.6

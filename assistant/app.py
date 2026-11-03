@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import logging
+
+import discord
+from discord import app_commands
+from discord.ext import commands
+
+from assistant.config import ConfigError, Settings, load_settings
+from assistant.db import Database
+from assistant.loader import load_builtin, load_user_addons
+
+log = logging.getLogger(__name__)
+
+
+class PrivateTree(app_commands.CommandTree):
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user.id == interaction.client.settings.owner_id
+
+
+class AssistantBot(commands.Bot):
+    def __init__(self, settings: Settings, db: Database):
+        intents = discord.Intents.default()
+        intents.message_content = True
+        super().__init__(
+            command_prefix=commands.when_mentioned,
+            intents=intents,
+            tree_cls=PrivateTree,
+            help_command=None,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+        self.settings = settings
+        self.db = db
+        self.tree.allowed_contexts = app_commands.AppCommandContext(
+            guild=True,
+            dm_channel=True,
+            private_channel=True,
+        )
+        self.tree.allowed_installs = app_commands.AppInstallationType(guild=True, user=True)
+
+    async def setup_hook(self) -> None:
+        self.tree.error(self.on_tree_error)
+        await load_builtin(self)
+        loaded, errors = await load_user_addons(self, self.settings.user_addons_path)
+        for error in errors:
+            log.error("Addon error: %s", error)
+        log.info("User addons: %s", ", ".join(loaded) if loaded else "none")
+        await self.sync_commands()
+
+    async def sync_commands(self) -> None:
+        if self.settings.guild_id is not None:
+            guild = discord.Object(id=self.settings.guild_id)
+            self.tree.copy_global_to(guild=guild)
+            synced = await self.tree.sync(guild=guild)
+            log.info("Synced %s commands to server %s", len(synced), self.settings.guild_id)
+        synced = await self.tree.sync()
+        log.info("Synced %s global commands", len(synced))
+
+    async def on_ready(self) -> None:
+        await self.change_presence(
+            activity=discord.Activity(
+                type=discord.ActivityType.listening,
+                name="notes and reminders",
+            )
+        )
+        log.info("Logged in as %s", self.user)
+
+    async def close(self) -> None:
+        try:
+            await super().close()
+        finally:
+            self.db.close()
+
+    async def on_tree_error(
+        self,
+        interaction: discord.Interaction,
+        error: app_commands.AppCommandError,
+    ) -> None:
+        original = getattr(error, "original", error)
+        private = isinstance(error, app_commands.CheckFailure) or isinstance(
+            original, app_commands.CheckFailure
+        )
+        if private:
+            log.info("Ignored a command from user %s", interaction.user.id)
+            message = "This assistant is private."
+        else:
+            log.exception("Command failed", exc_info=error)
+            message = "That command failed. The details are in the bot window."
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException:
+            log.exception("Could not send the error message")
+
+
+def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    try:
+        settings = load_settings()
+    except ConfigError as exc:
+        raise SystemExit(str(exc)) from exc
+    db = Database(settings.database_path)
+    bot = AssistantBot(settings, db)
+    bot.run(settings.discord_token, log_handler=None)
