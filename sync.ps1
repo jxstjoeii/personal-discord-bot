@@ -11,9 +11,13 @@ function Write-Log([string]$message) {
 }
 
 function Invoke-Git {
-    $output = & git -c user.name=jxstjoeii -c user.email=195534516+jxstjoeii@users.noreply.github.com @args 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw ($output | Out-String).Trim()
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $output = & git -c "user.name=jxstjoeii" -c "user.email=195534516+jxstjoeii@users.noreply.github.com" @args 2>&1
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $previous
+    if ($code -ne 0) {
+        throw (($output | Out-String).Trim())
     }
     return $output
 }
@@ -38,7 +42,8 @@ try {
     }
 }
 catch {
-    & git rebase --abort 2>$null | Out-Null
+    $ErrorActionPreference = "Continue"
+    git rebase --abort 2>&1 | Out-Null
     Write-Log $_.Exception.Message
     exit 1
 }
