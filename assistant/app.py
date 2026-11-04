@@ -6,9 +6,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from assistant.channel_log import format_log, write_log
 from assistant.config import ConfigError, Settings, load_settings
 from assistant.db import Database
 from assistant.loader import load_builtin, load_user_addons
+from assistant.phone import start_phone
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ class AssistantBot(commands.Bot):
         )
         self.settings = settings
         self.db = db
+        self.phone_runner = None
         self.tree.allowed_contexts = app_commands.AppCommandContext(
             guild=True,
             dm_channel=True,
@@ -45,6 +48,10 @@ class AssistantBot(commands.Bot):
         for error in errors:
             log.error("Addon error: %s", error)
         log.info("User addons: %s", ", ".join(loaded) if loaded else "none")
+        try:
+            self.phone_runner = await start_phone(self)
+        except Exception:
+            log.exception("Phone page failed to start")
         await self.sync_commands()
 
     async def sync_commands(self) -> None:
@@ -64,11 +71,46 @@ class AssistantBot(commands.Bot):
             )
         )
         log.info("Logged in as %s", self.user)
+        if self.settings.log_channel_id is not None and not getattr(self, "_announced_log", False):
+            self._announced_log = True
+            await write_log(
+                self,
+                format_log(
+                    self.settings.timezone,
+                    "Started",
+                    reply="Phone messages, DMs, commands, and delivered reminders will be copied here.",
+                ),
+            )
+
+    async def on_app_command_completion(
+        self,
+        interaction: discord.Interaction,
+        command: app_commands.Command,
+    ) -> None:
+        if command.qualified_name == "ask":
+            return
+        details = []
+        namespace = getattr(interaction, "namespace", None)
+        values = getattr(namespace, "__dict__", {})
+        for key, value in values.items():
+            if key.startswith("_") or value is None or value == "":
+                continue
+            details.append(f"{key}: {value}")
+        await write_log(
+            self,
+            format_log(
+                self.settings.timezone,
+                f"/{command.qualified_name}",
+                "\n".join(details),
+            ),
+        )
 
     async def close(self) -> None:
         try:
             await super().close()
         finally:
+            if self.phone_runner is not None:
+                await self.phone_runner.cleanup()
             self.db.close()
 
     async def on_tree_error(

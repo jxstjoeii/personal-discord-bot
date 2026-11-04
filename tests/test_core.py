@@ -39,6 +39,9 @@ def make_settings(folder: Path) -> Settings:
         timezone=PACIFIC,
         database_path=folder / "assistant.db",
         user_addons_path=folder / "user_addons",
+        phone_token="",
+        phone_port=8787,
+        log_channel_id=None,
     )
 
 
@@ -149,7 +152,7 @@ class ToolTests(unittest.TestCase):
 
 class ConfigTests(unittest.TestCase):
     def test_load_settings(self) -> None:
-        with mock.patch.dict("os.environ", {}, clear=True):
+        with mock.patch("assistant.config.load_dotenv"), mock.patch.dict("os.environ", {}, clear=True):
             with self.assertRaises(ConfigError):
                 load_settings()
         env = {
@@ -161,14 +164,21 @@ class ConfigTests(unittest.TestCase):
             "XAI_REASONING": "low",
             "TIMEZONE": "America/Los_Angeles",
         }
-        with mock.patch.dict("os.environ", env, clear=True):
+        with mock.patch("assistant.config.load_dotenv"), mock.patch.dict("os.environ", env, clear=True):
             settings = load_settings()
         self.assertEqual(settings.owner_id, 99)
         self.assertEqual(settings.guild_id, 123)
-        with mock.patch.dict("os.environ", {**env, "TIMEZONE": "Not/AZone"}, clear=True):
+        self.assertEqual(settings.phone_token, "")
+        self.assertEqual(settings.phone_port, 8787)
+        self.assertIsNone(settings.log_channel_id)
+        with mock.patch("assistant.config.load_dotenv"), mock.patch.dict(
+            "os.environ", {**env, "TIMEZONE": "Not/AZone"}, clear=True
+        ):
             with self.assertRaises(ConfigError):
                 load_settings()
-        with mock.patch.dict("os.environ", {**env, "DISCORD_OWNER_ID": "abc"}, clear=True):
+        with mock.patch("assistant.config.load_dotenv"), mock.patch.dict(
+            "os.environ", {**env, "DISCORD_OWNER_ID": "abc"}, clear=True
+        ):
             with self.assertRaises(ConfigError):
                 load_settings()
 
@@ -238,6 +248,79 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         note = next(command for command in self.bot.tree.get_commands() if command.name == "note")
         self.assertEqual(sorted(item.name for item in remind.commands), ["add", "cancel", "list"])
         self.assertEqual(sorted(item.name for item in note.commands), ["add", "delete", "edit", "show"])
+
+
+class ChannelLogTests(unittest.IsolatedAsyncioTestCase):
+    async def test_format_and_skip_without_channel(self) -> None:
+        from assistant.channel_log import format_log, write_log
+
+        moment = datetime(2026, 11, 4, 9, 5, tzinfo=PACIFIC)
+        text = format_log(PACIFIC, "Phone", "hello", "hi there", now=moment)
+        self.assertIn("Phone · Nov 04, 09:05 AM", text)
+        self.assertIn("You: hello", text)
+        self.assertIn("Patricia: hi there", text)
+
+        class FakeBot:
+            def __init__(self) -> None:
+                self.settings = make_settings(Path("."))
+                self.ready = False
+
+            def is_ready(self) -> bool:
+                self.ready = True
+                return False
+
+            async def wait_until_ready(self) -> None:
+                raise AssertionError("should not wait without a log channel")
+
+        await write_log(FakeBot(), "hello")
+
+
+class PhoneTests(unittest.IsolatedAsyncioTestCase):
+    async def test_phone_key_and_message(self) -> None:
+        from assistant.phone import authorized, message
+
+        self.assertFalse(authorized(None, "secret"))
+        self.assertFalse(authorized("secret", "secret"))
+        self.assertFalse(authorized("Bearer nope", "secret"))
+        self.assertTrue(authorized("Bearer secret", "secret"))
+
+        class FakeAsk:
+            async def reply_for_user(self, user_id: int, text: str, **kwargs) -> str:
+                return f"{user_id}:{text}"
+
+        class FakeBot:
+            def __init__(self) -> None:
+                self.settings = make_settings(Path("."))
+                self.settings = type(self.settings)(
+                    **{
+                        **self.settings.__dict__,
+                        "phone_token": "secret",
+                    }
+                )
+
+            def get_cog(self, name: str):
+                self.cog_name = name
+                return FakeAsk()
+
+        class FakeRequest:
+            def __init__(self, header: str, text: str) -> None:
+                self.headers = {
+                    "Authorization": header,
+                    "Content-Type": "application/json",
+                }
+                self.method = "POST"
+                self.query: dict = {}
+                self.app = {"bot": FakeBot()}
+                self._text = text
+
+            async def json(self) -> dict:
+                return {"text": self._text}
+
+        denied = await message(FakeRequest("Bearer nope", "hello"))
+        self.assertEqual(denied.status, 401)
+        accepted = await message(FakeRequest("Bearer secret", "hello"))
+        self.assertEqual(accepted.status, 200)
+        self.assertIn(b'"reply": "42:hello"', accepted.body)
 
 
 if __name__ == "__main__":

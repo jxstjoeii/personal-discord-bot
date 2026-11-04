@@ -26,6 +26,9 @@ class Settings:
     timezone: ZoneInfo
     database_path: Path
     user_addons_path: Path
+    phone_token: str
+    phone_port: int
+    log_channel_id: int | None
 
 
 def load_settings() -> Settings:
@@ -68,6 +71,23 @@ def load_settings() -> Settings:
         raise ConfigError(f"XAI_REASONING must be one of: {joined}.")
 
     model = os.getenv("XAI_MODEL", "grok-4.7").strip() or "grok-4.7"
+    phone_token = os.getenv("PHONE_TOKEN", "").strip()
+    phone_port_raw = os.getenv("PHONE_PORT", "8787").strip() or "8787"
+    try:
+        phone_port = int(phone_port_raw)
+    except ValueError as exc:
+        raise ConfigError("PHONE_PORT has to be a number, usually 8787.") from exc
+    if not 1 <= phone_port <= 65535:
+        raise ConfigError("PHONE_PORT has to be between 1 and 65535.")
+    log_raw = os.getenv("LOG_CHANNEL_ID", "").strip()
+    log_channel_id: int | None = None
+    if log_raw:
+        try:
+            log_channel_id = int(log_raw)
+        except ValueError as exc:
+            raise ConfigError(
+                "LOG_CHANNEL_ID has to be a numeric channel id, or leave it blank."
+            ) from exc
     return Settings(
         discord_token=token,
         owner_id=owner_id,
@@ -78,4 +98,7 @@ def load_settings() -> Settings:
         timezone=timezone,
         database_path=ROOT / "data" / "assistant.db",
         user_addons_path=ROOT / "user_addons",
+        phone_token=phone_token,
+        phone_port=phone_port,
+        log_channel_id=log_channel_id,
     )

@@ -9,6 +9,7 @@ from discord.ext import commands
 
 from assistant.addons.base import Addon
 from assistant.brain import run_chat
+from assistant.channel_log import format_log, write_log
 from assistant.formatting import split_discord
 from assistant.tools import ToolContext, collect_tools
 
@@ -19,34 +20,63 @@ class Ask(Addon):
     addon_name = "questions"
     addon_description = "Answers questions and can use tools from the other addons."
 
-    async def reply_to_text(self, user: discord.abc.User, text: str) -> str:
+    async def reply_to_text(
+        self,
+        user: discord.abc.User,
+        text: str,
+        *,
+        source: str = "Discord",
+        origin_channel_id: int | None = None,
+    ) -> str:
+        return await self.reply_for_user(
+            user.id,
+            text,
+            source=source,
+            origin_channel_id=origin_channel_id,
+        )
+
+    async def reply_for_user(
+        self,
+        user_id: int,
+        text: str,
+        *,
+        source: str = "Discord",
+        origin_channel_id: int | None = None,
+    ) -> str:
         cleaned = text.strip()[:4000]
         if not cleaned:
             return "Ask me something."
         if not self.bot.settings.xai_api_key:
-            return (
+            answer = (
                 "Add XAI_API_KEY to the .env file, then restart the bot. "
                 "Reminders and notes still work."
             )
-        tools = collect_tools(self.bot)
-        ctx = ToolContext(user.id, self.bot.settings, self.bot.db)
-        history = self.bot.db.recent_messages(user.id, limit=12)
-        try:
-            answer = await asyncio.to_thread(
-                run_chat, self.bot.settings, history, cleaned, tools, ctx
-            )
-        except Exception:
-            log.exception("Question failed")
-            return "That question failed. Check the bot window and the XAI_API_KEY in .env."
-        self.bot.db.add_message(user.id, "user", cleaned)
-        self.bot.db.add_message(user.id, "assistant", answer[:4000])
+        else:
+            tools = collect_tools(self.bot)
+            ctx = ToolContext(user_id, self.bot.settings, self.bot.db)
+            history = self.bot.db.recent_messages(user_id, limit=12)
+            try:
+                answer = await asyncio.to_thread(
+                    run_chat, self.bot.settings, history, cleaned, tools, ctx
+                )
+            except Exception:
+                log.exception("Question failed")
+                answer = "That question failed. Check the bot window and the XAI_API_KEY in .env."
+            else:
+                self.bot.db.add_message(user_id, "user", cleaned)
+                self.bot.db.add_message(user_id, "assistant", answer[:4000])
+        await write_log(
+            self.bot,
+            format_log(self.bot.settings.timezone, source, cleaned, answer),
+            origin_channel_id=origin_channel_id,
+        )
         return answer
 
     @app_commands.command(name="ask", description="Ask a question")
     @app_commands.describe(question="What you want to know or do")
     async def ask(self, interaction: discord.Interaction, question: str) -> None:
         await interaction.response.defer(ephemeral=True)
-        answer = await self.reply_to_text(interaction.user, question)
+        answer = await self.reply_to_text(interaction.user, question, source="/ask")
         parts = split_discord(answer)
         await interaction.followup.send(parts[0], ephemeral=True)
         for part in parts[1:]:
@@ -74,8 +104,14 @@ class Ask(Addon):
         text = text.strip()
         if not text:
             return
+        source = "Discord DM" if message.guild is None else f"#{message.channel}"
         async with message.channel.typing():
-            answer = await self.reply_to_text(message.author, text)
+            answer = await self.reply_to_text(
+                message.author,
+                text,
+                source=source,
+                origin_channel_id=message.channel.id,
+            )
         for part in split_discord(answer):
             await message.reply(part, mention_author=False)
 

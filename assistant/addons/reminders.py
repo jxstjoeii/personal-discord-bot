@@ -7,6 +7,7 @@ from discord import app_commands
 from discord.ext import tasks
 
 from assistant.addons.base import Addon
+from assistant.channel_log import format_log, write_log
 from assistant.formatting import format_stored, format_when, reminder_problem
 from assistant.timeparse import PastTime, parse_when
 from assistant.tools import AssistantTool, ToolContext
@@ -102,6 +103,14 @@ class Reminders(Addon):
                 await user.send(f"Reminder: {row['text']}\nDue {when}")
                 self.bot.db.mark_reminder_sent(row["id"])
                 log.info("Delivered reminder %s", row["id"])
+                await write_log(
+                    self.bot,
+                    format_log(
+                        self.bot.settings.timezone,
+                        "Reminder delivered",
+                        reply=f"#{row['id']} {row['text']}\nDue {when}",
+                    ),
+                )
             except discord.HTTPException:
                 attempts = self.bot.db.bump_reminder_attempt(row["id"])
                 log.warning(
