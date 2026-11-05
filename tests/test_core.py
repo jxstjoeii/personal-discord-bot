@@ -146,6 +146,7 @@ class ToolTests(unittest.TestCase):
         )
         self.assertIn("Unknown tool", invoke_tool({}, ctx, "missing", "{}"))
         prompt = system_prompt(ctx.settings, ["greet"])
+        self.assertIn("Patricia", prompt)
         self.assertIn("greet", prompt)
         self.assertIn("America/Los_Angeles", prompt)
 
@@ -242,7 +243,20 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         names = sorted(command.name for command in self.bot.tree.get_commands())
         self.assertEqual(
             names,
-            ["addons", "ask", "catalog", "clear_chat", "help", "note", "reload_addons", "remind"],
+            [
+                "addons",
+                "ask",
+                "brief",
+                "calendar",
+                "catalog",
+                "chat",
+                "clear_chat",
+                "help",
+                "note",
+                "reload_addons",
+                "remind",
+                "weather",
+            ],
         )
         remind = next(command for command in self.bot.tree.get_commands() if command.name == "remind")
         note = next(command for command in self.bot.tree.get_commands() if command.name == "note")

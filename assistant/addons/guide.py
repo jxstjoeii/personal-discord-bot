@@ -20,11 +20,16 @@ HELP = "\n".join(
         "/note edit — change a note",
         "/note delete — delete a note",
         "/catalog — browse and search notes",
-        "/ask — ask a question",
+        "/chat — talk to Patricia",
+        "/ask — same as /chat",
+        "/brief — time, weather, calendar, and reminders",
+        "/calendar — today and tomorrow, read only",
+        "/weather — the weather at home",
         "/clear_chat — forget the recent conversation",
         "/addons — list abilities",
         "/reload_addons — load new files from user_addons",
-        "You can also DM me, or mention me. A normal sentence can set a reminder or save a note.",
+        "You can also DM me, or mention me. A normal sentence can set a reminder, save a note, or ask what is on today.",
+        "Say brief, calendar, or weather on their own and I answer without waiting on chat.",
         "New abilities go in the user_addons folder. Copy _template.py, rename it, then run /reload_addons.",
     ]
 )
@@ -37,7 +42,7 @@ class Guide(Addon):
     @app_commands.command(name="help", description="Show what this assistant can do")
     async def help_command(self, interaction: discord.Interaction) -> None:
         embed = discord.Embed(
-            title="Personal assistant",
+            title="Patricia",
             description=HELP[:4000],
             color=discord.Color.blurple(),
         )

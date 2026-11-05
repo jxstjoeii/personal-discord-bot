@@ -10,6 +10,7 @@ log = logging.getLogger(__name__)
 BUILTIN = (
     "assistant.addons.reminders",
     "assistant.addons.notes",
+    "assistant.addons.house",
     "assistant.addons.ask",
     "assistant.addons.guide",
 )

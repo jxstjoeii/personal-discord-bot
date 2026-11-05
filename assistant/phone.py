@@ -51,6 +51,8 @@ PAGE = """<!DOCTYPE html>
     font-weight: 650;
   }
   button.secondary { background: transparent; color: #efe7ff; }
+  .actions { display: flex; gap: 0.5rem; }
+  .actions button { flex: 1; }
   .bubble {
     white-space: pre-wrap;
     background: #2a2438;
@@ -67,16 +69,21 @@ PAGE = """<!DOCTYPE html>
 <body>
 <main>
   <p class="muted">Patricia</p>
-  <h1>Ask without opening Discord</h1>
-  <p class="muted">Reminders, notes, and questions go to the same assistant. A due reminder still arrives as a Discord message.</p>
+  <h1>Chat with Patricia</h1>
+  <p class="muted">Calendar, weather, reminders, and notes stay on this PC. A due reminder still arrives as a Discord message.</p>
   <form id="unlock">
     <label for="token">Phone key from the .env file, the PHONE_TOKEN line</label>
     <input id="token" autocomplete="off" autocapitalize="none" spellcheck="false">
     <button type="submit">Save on this phone</button>
   </form>
   <form id="ask" hidden>
+    <div class="actions">
+      <button type="button" data-ask="brief">Brief</button>
+      <button type="button" data-ask="calendar">Calendar</button>
+      <button type="button" data-ask="weather">Weather</button>
+    </div>
     <label for="text">What do you need?</label>
-    <textarea id="text" placeholder="Remind me tomorrow at 9am to take my Happy Pills"></textarea>
+    <textarea id="text" placeholder="What's on today?"></textarea>
     <button type="submit">Send</button>
     <button class="secondary" id="forget" type="button">Forget the phone key</button>
   </form>
@@ -141,11 +148,8 @@ function addBubble(className, value) {
   thread.prepend(node);
 }
 
-ask.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const message = text.value.trim();
+async function send(message) {
   if (!message) return;
-  text.value = "";
   addBubble("you", message);
   let reply = "Patricia could not be reached. The PC has to be on, and this phone has to be on the same Wi-Fi.";
   try {
@@ -173,6 +177,16 @@ ask.addEventListener("submit", async (event) => {
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(spoken);
   }
+}
+
+ask.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const message = text.value.trim();
+  text.value = "";
+  send(message);
+});
+document.querySelectorAll("[data-ask]").forEach((button) => {
+  button.addEventListener("click", () => send(button.dataset.ask));
 });
 </script>
 </body>

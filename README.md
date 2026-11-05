@@ -1,8 +1,8 @@
 # Personal Discord assistant
 
-A private Discord bot for one person. It sets reminders, keeps a catalog of notes, answers questions, and picks up new abilities from the `user_addons` folder.
+A private Discord bot for one person. Patricia chats, sets reminders, keeps a catalog of notes, reads the calendar and the weather, and picks up new abilities from the `user_addons` folder.
 
-Only the Discord account in `DISCORD_OWNER_ID` can use it. Reminders and notes stay in a database on this computer. Questions, and any note text the assistant looks up while answering, are sent to the xAI API.
+Only the Discord account in `DISCORD_OWNER_ID` can use it. Reminders, notes, and chat history stay in a database on this computer. Chat, and any note text she looks up while answering, is sent to the xAI API. Calendar and weather are read on this PC and do not need the API key. She can read the calendar. She does not add or change events.
 
 ## What you can say
 
@@ -13,7 +13,9 @@ Slash commands:
 - `/remind cancel` removes one by its id.
 - `/note add`, `/note show`, `/note edit`, and `/note delete` manage notes. To clear tags while editing, set tags to `-`.
 - `/catalog` browses notes. You can filter with a search or a tag, and page through them.
-- `/ask` asks a question.
+- `/chat` talks to Patricia. `/ask` does the same thing.
+- `/brief` gives the time, the weather, today and tomorrow on the calendar, and upcoming reminders.
+- `/calendar` reads today and tomorrow. `/weather` reads the weather at home. These work without the API key.
 - `/clear_chat` forgets the recent conversation. Notes and reminders stay.
 - `/addons` lists abilities.
 - `/reload_addons` loads new files from `user_addons`.
@@ -30,7 +32,7 @@ Reminders arrive as a direct message. The bot checks every 15 seconds, so it has
 3. On that same Bot page, turn on **Message Content Intent**. Leave **Public Bot** off.
 4. In Discord, turn on **Settings → Advanced → Developer Mode**. Right-click your name and choose **Copy User ID**. Put that in `DISCORD_OWNER_ID`.
 5. Optional: right-click your server icon, copy the server id, and put it in `DISCORD_GUILD_ID`. Commands then show up in that server right away.
-6. Create an API key at <https://console.x.ai/team/default/api-keys> and put it in `XAI_API_KEY`. Reminders and notes work without it. Questions need it.
+6. Create an API key at <https://console.x.ai/team/default/api-keys> and put it in `XAI_API_KEY`. Reminders, notes, the calendar, and the weather work without it. Chat needs it.
 7. Invite the bot. In the developer portal, open **OAuth2 → URL Generator**. Choose the scopes `bot` and `applications.commands`. Choose the permissions **View Channels**, **Send Messages**, **Embed Links**, and **Read Message History**. Open the generated URL and add the bot to your server.
 
 Allow direct messages from server members, or the reminder DMs cannot arrive.

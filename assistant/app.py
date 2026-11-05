@@ -67,7 +67,7 @@ class AssistantBot(commands.Bot):
         await self.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.listening,
-                name="notes and reminders",
+                name="the house",
             )
         )
         log.info("Logged in as %s", self.user)
@@ -87,7 +87,7 @@ class AssistantBot(commands.Bot):
         interaction: discord.Interaction,
         command: app_commands.Command,
     ) -> None:
-        if command.qualified_name == "ask":
+        if command.qualified_name in {"ask", "chat"}:
             return
         details = []
         namespace = getattr(interaction, "namespace", None)

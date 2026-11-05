@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 
 import discord
 from discord import app_commands
@@ -10,15 +11,16 @@ from discord.ext import commands
 from assistant.addons.base import Addon
 from assistant.brain import run_chat
 from assistant.channel_log import format_log, write_log
-from assistant.formatting import split_discord
+from assistant.formatting import format_stored, split_discord
+from assistant.house import brief_report, calendar_report, direct_kind, weather_report
 from assistant.tools import ToolContext, collect_tools
 
 log = logging.getLogger(__name__)
 
 
 class Ask(Addon):
-    addon_name = "questions"
-    addon_description = "Answers questions and can use tools from the other addons."
+    addon_name = "chat"
+    addon_description = "Talks with Joeii and can use the calendar, weather, notes, and reminders."
 
     async def reply_to_text(
         self,
@@ -46,10 +48,13 @@ class Ask(Addon):
         cleaned = text.strip()[:4000]
         if not cleaned:
             return "Ask me something."
-        if not self.bot.settings.xai_api_key:
+        kind = direct_kind(cleaned)
+        if kind is not None:
+            answer = await asyncio.to_thread(self._direct, user_id, kind)
+        elif not self.bot.settings.xai_api_key:
             answer = (
-                "Add XAI_API_KEY to the .env file, then restart the bot. "
-                "Reminders and notes still work."
+                "Chat needs an XAI_API_KEY in the .env file. "
+                "Calendar, weather, reminders, and notes still work. Try /brief."
             )
         else:
             tools = collect_tools(self.bot)
@@ -61,7 +66,10 @@ class Ask(Addon):
                 )
             except Exception:
                 log.exception("Question failed")
-                answer = "That question failed. Check the bot window and the XAI_API_KEY in .env."
+                answer = (
+                    "Chat could not reach Grok. Check XAI_API_KEY in .env. "
+                    "Calendar, weather, reminders, and notes still work."
+                )
             else:
                 self.bot.db.add_message(user_id, "user", cleaned)
                 self.bot.db.add_message(user_id, "assistant", answer[:4000])
@@ -72,15 +80,36 @@ class Ask(Addon):
         )
         return answer
 
-    @app_commands.command(name="ask", description="Ask a question")
-    @app_commands.describe(question="What you want to know or do")
-    async def ask(self, interaction: discord.Interaction, question: str) -> None:
+    def _direct(self, user_id: int, kind: str) -> str:
+        zone = self.bot.settings.timezone
+        now = datetime.now(zone)
+        if kind == "calendar":
+            return calendar_report(zone, now, "both")
+        if kind == "weather":
+            return weather_report(zone, now, "both")
+        lines = []
+        for row in self.bot.db.list_reminders(user_id)[:5]:
+            when = format_stored(row["due_at"], zone)
+            lines.append(f"#{row['id']} {when} — {row['text']}")
+        return brief_report(zone, now, lines)
+
+    async def _answer(self, interaction: discord.Interaction, question: str, source: str) -> None:
         await interaction.response.defer(ephemeral=True)
-        answer = await self.reply_to_text(interaction.user, question, source="/ask")
+        answer = await self.reply_to_text(interaction.user, question, source=source)
         parts = split_discord(answer)
         await interaction.followup.send(parts[0], ephemeral=True)
         for part in parts[1:]:
             await interaction.followup.send(part, ephemeral=True)
+
+    @app_commands.command(name="chat", description="Chat with Patricia")
+    @app_commands.describe(message="What you want to say")
+    async def chat(self, interaction: discord.Interaction, message: str) -> None:
+        await self._answer(interaction, message, "/chat")
+
+    @app_commands.command(name="ask", description="Ask Patricia something")
+    @app_commands.describe(question="What you want to know or do")
+    async def ask(self, interaction: discord.Interaction, question: str) -> None:
+        await self._answer(interaction, question, "/ask")
 
     @app_commands.command(name="clear_chat", description="Forget the recent conversation")
     async def clear_chat(self, interaction: discord.Interaction) -> None:
