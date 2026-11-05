@@ -94,12 +94,12 @@ class Ask(Addon):
         return brief_report(zone, now, lines)
 
     async def _answer(self, interaction: discord.Interaction, question: str, source: str) -> None:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         answer = await self.reply_to_text(interaction.user, question, source=source)
         parts = split_discord(answer)
-        await interaction.followup.send(parts[0], ephemeral=True)
+        await interaction.followup.send(parts[0])
         for part in parts[1:]:
-            await interaction.followup.send(part, ephemeral=True)
+            await interaction.followup.send(part)
 
     @app_commands.command(name="chat", description="Chat with Patricia")
     @app_commands.describe(message="What you want to say")
@@ -116,7 +116,6 @@ class Ask(Addon):
         self.bot.db.clear_messages(interaction.user.id)
         await interaction.response.send_message(
             "Cleared our recent conversation. Notes and reminders stay.",
-            ephemeral=True,
         )
 
     @commands.Cog.listener()

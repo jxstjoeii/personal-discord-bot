@@ -46,7 +46,7 @@ class Guide(Addon):
             description=HELP[:4000],
             color=discord.Color.blurple(),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="addons", description="List loaded abilities")
     async def addons(self, interaction: discord.Interaction) -> None:
@@ -56,11 +56,11 @@ class Guide(Addon):
             color=discord.Color.blurple(),
         )
         embed.set_footer(text="Add a Python file to user_addons, then run /reload_addons.")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="reload_addons", description="Reload abilities from user_addons")
     async def reload_addons(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         loaded, errors = await reload_user_addons(self.bot, self.bot.settings.user_addons_path)
         try:
             await self.bot.sync_commands()
@@ -72,7 +72,7 @@ class Guide(Addon):
         if errors:
             lines.append("Errors:\n" + "\n".join(errors))
         lines.append("In a server, new commands show up quickly. In DMs they can take up to an hour the first time.")
-        await interaction.followup.send("\n".join(lines)[:1900], ephemeral=True)
+        await interaction.followup.send("\n".join(lines)[:1900])
 
 
 async def setup(bot) -> None:

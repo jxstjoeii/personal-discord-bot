@@ -181,7 +181,7 @@ class Notes(Addon):
         tags: str = "",
     ) -> None:
         message = self._tool_save(self._ctx(interaction), title, body, tags)
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(message)
 
     @note.command(name="show", description="Open one note")
     @app_commands.describe(note_id="The id from /catalog")
@@ -189,7 +189,7 @@ class Notes(Addon):
         row = self.bot.db.get_note(interaction.user.id, note_id)
         if row is None:
             await interaction.response.send_message(
-                f"There is no note #{note_id}.", ephemeral=True
+                f"There is no note #{note_id}."
             )
             return
         embed = discord.Embed(
@@ -202,7 +202,7 @@ class Notes(Addon):
         if row["tags"]:
             footer = f"{row['tags']} · {footer}"
         embed.set_footer(text=footer[:2048])
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
     @note.command(name="edit", description="Change a note")
     @app_commands.describe(
@@ -222,20 +222,19 @@ class Notes(Addon):
         if title is None and body is None and tags is None:
             await interaction.response.send_message(
                 "Tell me what to change: title, text, or tags.",
-                ephemeral=True,
             )
             return
         current = self.bot.db.get_note(interaction.user.id, note_id)
         if current is None:
             await interaction.response.send_message(
-                f"There is no note #{note_id}.", ephemeral=True
+                f"There is no note #{note_id}."
             )
             return
         new_title = current["title"] if title is None else title
         new_body = current["body"] if body is None else body
         problem = note_problem(new_title, new_body)
         if problem:
-            await interaction.response.send_message(problem, ephemeral=True)
+            await interaction.response.send_message(problem)
             return
         stored_tags = None if tags is None else ("" if tags.strip() == "-" else tags)
         row = self.bot.db.update_note(
@@ -247,19 +246,18 @@ class Notes(Addon):
         )
         if row is None:
             await interaction.response.send_message(
-                f"There is no note #{note_id}.", ephemeral=True
+                f"There is no note #{note_id}."
             )
             return
         await interaction.response.send_message(
             f"Updated note #{row['id']}, {row['title']}.",
-            ephemeral=True,
         )
 
     @note.command(name="delete", description="Delete a note")
     @app_commands.describe(note_id="The id from /catalog")
     async def delete(self, interaction: discord.Interaction, note_id: int) -> None:
         message = self._tool_delete(self._ctx(interaction), note_id)
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(message)
 
     @app_commands.command(name="catalog", description="Browse and search your notes")
     @app_commands.describe(
@@ -289,7 +287,7 @@ class Notes(Addon):
                 current,
                 total_pages,
             )
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=view)
 
     def _ctx(self, interaction: discord.Interaction) -> ToolContext:
         return ToolContext(interaction.user.id, self.bot.settings, self.bot.db)

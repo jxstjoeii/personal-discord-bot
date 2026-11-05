@@ -130,9 +130,9 @@ class AssistantBot(commands.Bot):
             message = "That command failed. The details are in the bot window."
         try:
             if interaction.response.is_done():
-                await interaction.followup.send(message, ephemeral=True)
+                await interaction.followup.send(message, ephemeral=private)
             else:
-                await interaction.response.send_message(message, ephemeral=True)
+                await interaction.response.send_message(message, ephemeral=private)
         except discord.HTTPException:
             log.exception("Could not send the error message")
 

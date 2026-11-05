@@ -38,7 +38,7 @@ class Ping(Addon):
 
     @app_commands.command(name="ping", description="Check that this addon is loaded")
     async def ping(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_message("Pong.", ephemeral=True)
+        await interaction.response.send_message("Pong.")
 
 
 async def setup(bot) -> None:

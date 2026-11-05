@@ -158,7 +158,7 @@ class Reminders(Addon):
     @app_commands.describe(when=WHEN_HELP, what="What to remind you about")
     async def add(self, interaction: discord.Interaction, when: str, what: str) -> None:
         message = self._tool_create(self._ctx(interaction), when, what)
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(message)
 
     @remind.command(name="list", description="Show upcoming reminders")
     async def list_reminders(self, interaction: discord.Interaction) -> None:
@@ -167,7 +167,6 @@ class Reminders(Addon):
         if not rows:
             await interaction.response.send_message(
                 f"You have no reminders. Times use {tz.key}.",
-                ephemeral=True,
             )
             return
         lines = [f"Times use {tz.key}."]
@@ -176,13 +175,13 @@ class Reminders(Addon):
             lines.append(f"**#{row['id']}** {when}\n{row['text']}")
         if len(rows) > 15:
             lines.append(f"{len(rows) - 15} more are saved.")
-        await interaction.response.send_message("\n\n".join(lines)[:1900], ephemeral=True)
+        await interaction.response.send_message("\n\n".join(lines)[:1900])
 
     @remind.command(name="cancel", description="Cancel a reminder by its id")
     @app_commands.describe(reminder_id="The id shown by /remind list")
     async def cancel(self, interaction: discord.Interaction, reminder_id: int) -> None:
         message = self._tool_cancel(self._ctx(interaction), reminder_id)
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(message)
 
     def _ctx(self, interaction: discord.Interaction) -> ToolContext:
         return ToolContext(interaction.user.id, self.bot.settings, self.bot.db)

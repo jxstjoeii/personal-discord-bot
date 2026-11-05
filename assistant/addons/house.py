@@ -78,13 +78,13 @@ class House(Addon):
 
     async def _send(self, interaction: discord.Interaction, text: str) -> None:
         parts = split_discord(text)
-        await interaction.followup.send(parts[0], ephemeral=True)
+        await interaction.followup.send(parts[0])
         for part in parts[1:]:
-            await interaction.followup.send(part, ephemeral=True)
+            await interaction.followup.send(part)
 
     @app_commands.command(name="brief", description="Time, weather, calendar, and reminders")
     async def brief(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         text = await asyncio.to_thread(
             self._brief,
             self.bot.settings.timezone,
@@ -97,7 +97,7 @@ class House(Addon):
     @app_commands.describe(day="Which day")
     @app_commands.choices(day=DAY_CHOICES)
     async def calendar(self, interaction: discord.Interaction, day: str = "both") -> None:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         text = await asyncio.to_thread(
             calendar_report,
             self.bot.settings.timezone,
@@ -110,7 +110,7 @@ class House(Addon):
     @app_commands.describe(day="Which day")
     @app_commands.choices(day=DAY_CHOICES)
     async def weather(self, interaction: discord.Interaction, day: str = "both") -> None:
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         text = await asyncio.to_thread(
             weather_report,
             self.bot.settings.timezone,
