@@ -51,9 +51,9 @@ class Ask(Addon):
         kind = direct_kind(cleaned)
         if kind is not None:
             answer = await asyncio.to_thread(self._direct, user_id, kind)
-        elif not self.bot.settings.xai_api_key:
+        elif not self.bot.settings.anthropic_api_key:
             answer = (
-                "Chat needs an XAI_API_KEY in the .env file. "
+                "Chat needs an ANTHROPIC_API_KEY in the .env file. "
                 "Calendar, weather, reminders, and notes still work. Try /brief."
             )
         else:
@@ -67,7 +67,7 @@ class Ask(Addon):
             except Exception:
                 log.exception("Question failed")
                 answer = (
-                    "Chat could not reach Grok. Check XAI_API_KEY in .env. "
+                    "Chat could not reach Claude. Check ANTHROPIC_API_KEY in .env. "
                     "Calendar, weather, reminders, and notes still work."
                 )
             else:

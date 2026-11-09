@@ -33,9 +33,8 @@ def make_settings(folder: Path) -> Settings:
         discord_token="test-token",
         owner_id=42,
         guild_id=None,
-        xai_api_key="",
-        model="grok-4.7",
-        reasoning_effort="low",
+        anthropic_api_key="",
+        model="claude-sonnet-5-5",
         timezone=PACIFIC,
         database_path=folder / "assistant.db",
         user_addons_path=folder / "user_addons",
@@ -160,9 +159,8 @@ class ConfigTests(unittest.TestCase):
             "DISCORD_TOKEN": "token",
             "DISCORD_OWNER_ID": "99",
             "DISCORD_GUILD_ID": "123",
-            "XAI_API_KEY": "key",
-            "XAI_MODEL": "grok-4.7",
-            "XAI_REASONING": "low",
+            "ANTHROPIC_API_KEY": "key",
+            "CLAUDE_MODEL": "claude-sonnet-5-5",
             "TIMEZONE": "America/Los_Angeles",
         }
         with mock.patch("assistant.config.load_dotenv"), mock.patch.dict("os.environ", env, clear=True):

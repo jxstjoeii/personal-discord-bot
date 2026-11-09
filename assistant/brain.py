@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from datetime import datetime
 
@@ -32,6 +33,25 @@ def system_prompt(settings: Settings, tool_names: list[str]) -> str:
     )
 
 
+def _clean_history(history: list[dict]) -> list[dict]:
+    """Claude needs alternating user/assistant turns that start with the user."""
+    cleaned: list[dict] = []
+    for item in history:
+        role = item.get("role")
+        content = str(item.get("content", "")).strip()
+        if role not in ("user", "assistant") or not content:
+            continue
+        if not cleaned and role == "assistant":
+            continue
+        if cleaned and cleaned[-1]["role"] == role:
+            cleaned[-1]["content"] += "\n\n" + content
+        else:
+            cleaned.append({"role": role, "content": content})
+    if cleaned and cleaned[-1]["role"] == "user":
+        cleaned.pop()
+    return cleaned
+
+
 def run_chat(
     settings: Settings,
     history: list[dict],
@@ -39,54 +59,51 @@ def run_chat(
     tools: list[AssistantTool],
     ctx: ToolContext,
 ) -> str:
-    from xai_sdk import Client
-    from xai_sdk.chat import assistant, system, tool, tool_result
-    from xai_sdk.chat import user as user_message
+    import anthropic
 
-    client = Client(api_key=settings.xai_api_key)
-    sdk_tools = [
-        tool(name=item.name, description=item.description, parameters=item.parameters)
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    api_tools = [
+        {
+            "name": item.name,
+            "description": item.description,
+            "input_schema": item.parameters or {"type": "object", "properties": {}},
+        }
         for item in tools
     ]
     by_name = {item.name: item for item in tools}
     safety_id = hashlib.sha256(f"discord:{ctx.user_id}".encode()).hexdigest()
-    chat = client.chat.create(
-        model=settings.model,
-        tools=sdk_tools or None,
-        reasoning_effort=settings.reasoning_effort,
-        store_messages=False,
-        temperature=0.4,
-        max_tokens=2000,
-        safety_identifier=safety_id,
-    )
-    chat.append(system(system_prompt(settings, [item.name for item in tools])))
-    for item in history:
-        content = str(item.get("content", ""))
-        if item.get("role") == "assistant":
-            chat.append(assistant(content))
-        elif item.get("role") == "user":
-            chat.append(user_message(content))
-    chat.append(user_message(user_text))
+    messages = _clean_history(history)
+    messages.append({"role": "user", "content": user_text})
+    request = {
+        "model": settings.model,
+        "max_tokens": 2000,
+        "temperature": 0.4,
+        "system": system_prompt(settings, [item.name for item in tools]),
+        "metadata": {"user_id": safety_id},
+    }
+    if api_tools:
+        request["tools"] = api_tools
 
-    response = chat.sample()
+    response = client.messages.create(messages=messages, **request)
     last_result = ""
     for _ in range(4):
-        calls = list(response.tool_calls or [])
+        calls = [block for block in response.content if block.type == "tool_use"]
         if not calls:
             break
-        chat.append(response)
+        messages.append({"role": "assistant", "content": response.content})
+        results = []
         for call in calls:
-            last_result = invoke_tool(
-                by_name,
-                ctx,
-                call.function.name,
-                call.function.arguments,
+            last_result = invoke_tool(by_name, ctx, call.name, json.dumps(call.input or {}))
+            log.info("Tool %s finished", call.name)
+            results.append(
+                {"type": "tool_result", "tool_use_id": call.id, "content": last_result}
             )
-            log.info("Tool %s finished", call.function.name)
-            chat.append(tool_result(last_result, tool_call_id=call.id))
-        response = chat.sample()
+        messages.append({"role": "user", "content": results})
+        response = client.messages.create(messages=messages, **request)
 
-    text = (response.content or "").strip()
+    text = "".join(
+        block.text for block in response.content if block.type == "text"
+    ).strip()
     if text:
         return text
     if last_result:

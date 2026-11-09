@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
-REASONING_LEVELS = ("none", "low", "medium", "high", "xhigh")
+DEFAULT_MODEL = "claude-sonnet-5-5"
 
 
 class ConfigError(Exception):
@@ -20,9 +20,8 @@ class Settings:
     discord_token: str
     owner_id: int
     guild_id: int | None
-    xai_api_key: str
+    anthropic_api_key: str
     model: str
-    reasoning_effort: str
     timezone: ZoneInfo
     database_path: Path
     user_addons_path: Path
@@ -65,12 +64,7 @@ def load_settings() -> Settings:
             f"Unknown TIMEZONE {timezone_name!r}. Use an IANA name like America/Los_Angeles."
         ) from exc
 
-    reasoning = os.getenv("XAI_REASONING", "low").strip().lower() or "low"
-    if reasoning not in REASONING_LEVELS:
-        joined = ", ".join(REASONING_LEVELS)
-        raise ConfigError(f"XAI_REASONING must be one of: {joined}.")
-
-    model = os.getenv("XAI_MODEL", "grok-4.7").strip() or "grok-4.7"
+    model = os.getenv("CLAUDE_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
     phone_token = os.getenv("PHONE_TOKEN", "").strip()
     phone_port_raw = os.getenv("PHONE_PORT", "8787").strip() or "8787"
     try:
@@ -92,9 +86,8 @@ def load_settings() -> Settings:
         discord_token=token,
         owner_id=owner_id,
         guild_id=guild_id,
-        xai_api_key=os.getenv("XAI_API_KEY", "").strip(),
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", "").strip(),
         model=model,
-        reasoning_effort=reasoning,
         timezone=timezone,
         database_path=ROOT / "data" / "assistant.db",
         user_addons_path=ROOT / "user_addons",
