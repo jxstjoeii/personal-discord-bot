@@ -16,6 +16,7 @@ Slash commands:
 - `/chat` talks to Patricia. `/ask` does the same thing.
 - `/brief` gives the time, the weather, today and tomorrow on the calendar, and upcoming reminders.
 - `/calendar` reads today and tomorrow. `/weather` reads the weather at home. These work without the API key.
+- `/pc` asks Patricia to do something on this PC. See below.
 - `/clear_chat` forgets the recent conversation. Notes and reminders stay.
 - `/addons` lists abilities.
 - `/reload_addons` loads new files from `user_addons`.
@@ -24,6 +25,19 @@ Slash commands:
 You can also send a normal message in a DM, or mention the bot in a server. "Remind me in 20 minutes to stretch" and "Save a note called grocery list: oat milk" work that way too.
 
 Reminders arrive as a direct message. The bot checks every 15 seconds, so it has to stay running. If the computer is asleep, a due reminder is sent after it wakes up.
+
+## Doing things on this PC
+
+Tell Patricia what you want to happen, with `/pc` or in a normal message: "open my downloads folder", "how much space is left on C:", "turn on dark mode". She writes PowerShell commands and a read-only check, and sends them to you with **Yes** and **No** buttons.
+
+- **No** deletes the message. Nothing runs.
+- **Yes** runs the commands one by one, then runs the check. Patricia tells you whether it worked. If it didn't, she says what went wrong and how to fix it, and sends the fix with its own Yes and No buttons.
+
+Only `DISCORD_OWNER_ID` can press the buttons. A plan expires after 60 minutes, and each one can run only once. Commands run hidden, as your normal Windows account, not as administrator, so anything that needs a UAC prompt will fail and she will say so. Chat needs the API key, so this does too.
+
+While a game in `QUIET_GAMES` is running (Overwatch by default), anything she opens goes on the screen Discord is on, not the game screen. She refuses a plan that would open something any other way. If you only have one screen, she won't open anything while the game is running. Run Overwatch in borderless windowed mode so a new window can't pull you out of the game.
+
+Set `PC_COMMANDS=off` in `.env` to turn this off.
 
 ## Set it up
 

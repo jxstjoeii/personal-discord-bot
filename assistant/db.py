@@ -57,6 +57,15 @@ class Database:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS pc_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                channel_id INTEGER,
+                message_id INTEGER,
+                plan TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(sent, due_at);
             CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id, updated_at);
             CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, id);
@@ -286,3 +295,35 @@ class Database:
         with self._lock:
             self._conn.execute("DELETE FROM messages WHERE user_id = ?", (user_id,))
             self._conn.commit()
+
+    def add_pc_task(self, user_id: int, plan: str, channel_id: int | None = None) -> int:
+        now = _iso(datetime.now(timezone.utc))
+        with self._lock:
+            cursor = self._conn.execute(
+                "INSERT INTO pc_tasks (user_id, channel_id, plan, created_at) VALUES (?, ?, ?, ?)",
+                (user_id, channel_id, plan, now),
+            )
+            self._conn.commit()
+            return int(cursor.lastrowid)
+
+    def get_pc_task(self, task_id: int) -> dict | None:
+        rows = self._rows("SELECT * FROM pc_tasks WHERE id = ?", (task_id,))
+        return rows[0] if rows else None
+
+    def set_pc_task_message(self, task_id: int, channel_id: int, message_id: int) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE pc_tasks SET channel_id = ?, message_id = ? WHERE id = ?",
+                (channel_id, message_id, task_id),
+            )
+            self._conn.commit()
+
+    def claim_pc_task(self, task_id: int, old: str, new: str) -> bool:
+        """Move a task from one status to another. False if it was not in old."""
+        with self._lock:
+            cursor = self._conn.execute(
+                "UPDATE pc_tasks SET status = ? WHERE id = ? AND status = ?",
+                (new, task_id, old),
+            )
+            self._conn.commit()
+            return cursor.rowcount == 1

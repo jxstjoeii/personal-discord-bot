@@ -58,7 +58,7 @@ class Ask(Addon):
             )
         else:
             tools = collect_tools(self.bot)
-            ctx = ToolContext(user_id, self.bot.settings, self.bot.db)
+            ctx = ToolContext(user_id, self.bot.settings, self.bot.db, origin_channel_id)
             history = self.bot.db.recent_messages(user_id, limit=12)
             try:
                 answer = await asyncio.to_thread(
@@ -95,7 +95,12 @@ class Ask(Addon):
 
     async def _answer(self, interaction: discord.Interaction, question: str, source: str) -> None:
         await interaction.response.defer()
-        answer = await self.reply_to_text(interaction.user, question, source=source)
+        answer = await self.reply_to_text(
+            interaction.user,
+            question,
+            source=source,
+            origin_channel_id=interaction.channel_id,
+        )
         parts = split_discord(answer)
         await interaction.followup.send(parts[0])
         for part in parts[1:]:

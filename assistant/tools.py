@@ -17,6 +17,7 @@ class ToolContext:
     user_id: int
     settings: Settings
     db: Database
+    channel_id: int | None = None
 
 
 @dataclass

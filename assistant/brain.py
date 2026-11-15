@@ -27,6 +27,8 @@ def system_prompt(settings: Settings, tool_names: list[str]) -> str:
         "When Joeii wants to find a note, search and then read the matching note before you answer. "
         "Delete a note or cancel a reminder only when clearly asked. "
         "Do not invent ids. Use the ids the tools return. "
+        "When Joeii wants something done on his PC, use propose_pc_task. It only sends a plan "
+        "with Yes and No buttons. Never say the task already ran. "
         f"The current local time is {clock}. "
         f"The timezone is {settings.timezone.key}. "
         f"Tools you can use: {names}."

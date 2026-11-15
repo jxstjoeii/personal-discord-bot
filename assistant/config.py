@@ -28,6 +28,9 @@ class Settings:
     phone_token: str
     phone_port: int
     log_channel_id: int | None
+    pc_enabled: bool = True
+    pc_timeout: int = 120
+    quiet_games: tuple[str, ...] = ("Overwatch",)
 
 
 def load_settings() -> Settings:
@@ -82,6 +85,20 @@ def load_settings() -> Settings:
             raise ConfigError(
                 "LOG_CHANNEL_ID has to be a numeric channel id, or leave it blank."
             ) from exc
+    pc_raw = os.getenv("PC_COMMANDS", "on").strip().lower() or "on"
+    if pc_raw not in ("on", "off"):
+        raise ConfigError("PC_COMMANDS has to be on or off.")
+    timeout_raw = os.getenv("PC_COMMAND_TIMEOUT", "120").strip() or "120"
+    try:
+        pc_timeout = int(timeout_raw)
+    except ValueError as exc:
+        raise ConfigError("PC_COMMAND_TIMEOUT has to be a number of seconds, like 120.") from exc
+    if not 5 <= pc_timeout <= 1800:
+        raise ConfigError("PC_COMMAND_TIMEOUT has to be between 5 and 1800 seconds.")
+    games_raw = os.getenv("QUIET_GAMES", "Overwatch")
+    quiet_games = tuple(
+        name.strip().removesuffix(".exe") for name in games_raw.split(",") if name.strip()
+    )
     return Settings(
         discord_token=token,
         owner_id=owner_id,
@@ -94,4 +111,7 @@ def load_settings() -> Settings:
         phone_token=phone_token,
         phone_port=phone_port,
         log_channel_id=log_channel_id,
+        pc_enabled=pc_raw == "on",
+        pc_timeout=pc_timeout,
+        quiet_games=quiet_games,
     )
