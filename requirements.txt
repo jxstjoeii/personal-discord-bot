@@ -1,5 +1,5 @@
 discord.py==2.7.1
-anthropic>=0.69
+claude-agent-sdk>=0.2
 python-dotenv==1.2.4
 dateparser==1.4.3
 tzdata==2026.6

@@ -9,7 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from assistant.addons.base import Addon
-from assistant.brain import run_chat
+from assistant.brain import claude_status, run_chat
 from assistant.channel_log import format_log, write_log
 from assistant.formatting import format_stored, split_discord
 from assistant.house import brief_report, calendar_report, direct_kind, weather_report
@@ -51,9 +51,9 @@ class Ask(Addon):
         kind = direct_kind(cleaned)
         if kind is not None:
             answer = await asyncio.to_thread(self._direct, user_id, kind)
-        elif not self.bot.settings.anthropic_api_key:
+        elif not claude_status():
             answer = (
-                "Chat needs an ANTHROPIC_API_KEY in the .env file. "
+                "Chat needs Claude signed in. Run claude setup-token and put the token in CLAUDE_CODE_OAUTH_TOKEN in .env. "
                 "Calendar, weather, reminders, and notes still work. Try /brief."
             )
         else:
@@ -67,7 +67,7 @@ class Ask(Addon):
             except Exception:
                 log.exception("Question failed")
                 answer = (
-                    "Chat could not reach Claude. Check ANTHROPIC_API_KEY in .env. "
+                    "Chat could not reach Claude. Check CLAUDE_CODE_OAUTH_TOKEN in .env, or the bot window for details. "
                     "Calendar, weather, reminders, and notes still work."
                 )
             else:

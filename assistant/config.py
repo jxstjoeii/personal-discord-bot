@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = "claude-sonnet-5-5"
+DEFAULT_MODEL = "sonnet"
 
 
 class ConfigError(Exception):
@@ -35,6 +35,11 @@ class Settings:
 
 def load_settings() -> Settings:
     load_dotenv(ROOT / ".env")
+    # A blank line in .env would still count as "set" for Claude Code, and an
+    # API key, even an empty one, outranks the subscription token.
+    for name in ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"):
+        if name in os.environ and not os.environ[name].strip():
+            del os.environ[name]
     token = os.getenv("DISCORD_TOKEN", "").strip()
     owner_raw = os.getenv("DISCORD_OWNER_ID", "").strip()
     if not token or not owner_raw:

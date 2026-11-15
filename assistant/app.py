@@ -6,6 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from assistant.brain import claude_status
 from assistant.channel_log import format_log, write_log
 from assistant.config import ConfigError, Settings, load_settings
 from assistant.db import Database
@@ -42,6 +43,11 @@ class AssistantBot(commands.Bot):
         self.tree.allowed_installs = app_commands.AppInstallationType(guild=True, user=True)
 
     async def setup_hook(self) -> None:
+        signed_in = claude_status()
+        if signed_in:
+            log.info("Claude sign-in: %s", signed_in)
+        else:
+            log.warning("Claude is not signed in. Chat and /pc need it. Run setup-claude.ps1.")
         self.tree.error(self.on_tree_error)
         await load_builtin(self)
         loaded, errors = await load_user_addons(self, self.settings.user_addons_path)

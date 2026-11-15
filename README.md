@@ -2,7 +2,7 @@
 
 A private Discord bot for one person. Patricia chats, sets reminders, keeps a catalog of notes, reads the calendar and the weather, and picks up new abilities from the `user_addons` folder.
 
-Only the Discord account in `DISCORD_OWNER_ID` can use it. Reminders, notes, and chat history stay in a database on this computer. Chat, and any note text she looks up while answering, is sent to the Anthropic (Claude) API. Calendar and weather are read on this PC and do not need the API key. She can read the calendar. She does not add or change events.
+Only the Discord account in `DISCORD_OWNER_ID` can use it. Reminders, notes, and chat history stay in a database on this computer. Chat, and any note text she looks up while answering, is sent to Claude, through your Claude subscription. Calendar and weather are read on this PC and do not need Claude. She can read the calendar. She does not add or change events.
 
 ## What you can say
 
@@ -15,7 +15,7 @@ Slash commands:
 - `/catalog` browses notes. You can filter with a search or a tag, and page through them.
 - `/chat` talks to Patricia. `/ask` does the same thing.
 - `/brief` gives the time, the weather, today and tomorrow on the calendar, and upcoming reminders.
-- `/calendar` reads today and tomorrow. `/weather` reads the weather at home. These work without the API key.
+- `/calendar` reads today and tomorrow. `/weather` reads the weather at home. These work without Claude signed in.
 - `/pc` asks Patricia to do something on this PC. See below.
 - `/clear_chat` forgets the recent conversation. Notes and reminders stay.
 - `/addons` lists abilities.
@@ -33,7 +33,7 @@ Tell Patricia what you want to happen, with `/pc` or in a normal message: "open 
 - **No** deletes the message. Nothing runs.
 - **Yes** runs the commands one by one, then runs the check. Patricia tells you whether it worked. If it didn't, she says what went wrong and how to fix it, and sends the fix with its own Yes and No buttons.
 
-Only `DISCORD_OWNER_ID` can press the buttons. A plan expires after 60 minutes, and each one can run only once. Commands run hidden, as your normal Windows account, not as administrator, so anything that needs a UAC prompt will fail and she will say so. Chat needs the API key, so this does too.
+Only `DISCORD_OWNER_ID` can press the buttons. A plan expires after 60 minutes, and each one can run only once. Commands run hidden, as your normal Windows account, not as administrator, so anything that needs a UAC prompt will fail and she will say so. Chat needs Claude signed in, so this does too.
 
 While a game in `QUIET_GAMES` is running (Overwatch by default), anything she opens goes on the screen Discord is on, not the game screen. She refuses a plan that would open something any other way. If you only have one screen, she won't open anything while the game is running. Run Overwatch in borderless windowed mode so a new window can't pull you out of the game.
 
@@ -46,7 +46,9 @@ Set `PC_COMMANDS=off` in `.env` to turn this off.
 3. On that same Bot page, turn on **Message Content Intent**. Leave **Public Bot** off.
 4. In Discord, turn on **Settings → Advanced → Developer Mode**. Right-click your name and choose **Copy User ID**. Put that in `DISCORD_OWNER_ID`.
 5. Optional: right-click your server icon, copy the server id, and put it in `DISCORD_GUILD_ID`. Commands then show up in that server right away.
-6. Create an API key at <https://console.anthropic.com/settings/keys> and put it in `ANTHROPIC_API_KEY`. Reminders, notes, the calendar, and the weather work without it. Chat needs it.
+6. Sign Patricia in to your Claude subscription (Pro, Max, Team, or Enterprise). After `run.ps1` has installed the packages once, run `.\setup-claude.ps1`. Approve it in the browser and paste the token it prints into `.env` as `CLAUDE_CODE_OAUTH_TOKEN`. The token lasts a year. Patricia's chats count toward your plan's usage limits, the same as using Claude yourself. Reminders, notes, the calendar, and the weather work without it. Chat needs it.
+
+   Patricia talks to Claude through the Claude Agent SDK, which runs Claude Code in the background. Claude Code's own tools for running commands, editing files, and browsing are turned off, and it does not read your other Claude Code settings. If you'd rather pay per use, put an API key in `ANTHROPIC_API_KEY` instead. It wins over the token when both are set.
 7. Invite the bot. In the developer portal, open **OAuth2 → URL Generator**. Choose the scopes `bot` and `applications.commands`. Choose the permissions **View Channels**, **Send Messages**, **Embed Links**, and **Read Message History**. Open the generated URL and add the bot to your server.
 
 Allow direct messages from server members, or the reminder DMs cannot arrive.
@@ -80,4 +82,4 @@ Built-in abilities live in `assistant/addons/`. A tool name in a user addon repl
 
 ## Files that stay off GitHub
 
-`.env` holds the Discord token and the Anthropic API key. `data/assistant.db` holds your notes, reminders, and recent chat. Both are gitignored.
+`.env` holds the Discord token and your Claude token. `data/assistant.db` holds your notes, reminders, and recent chat. Both are gitignored.

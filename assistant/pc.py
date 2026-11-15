@@ -457,26 +457,10 @@ def _rules(settings: Settings, game: str | None) -> str:
     )
 
 
-def _client(settings: Settings):
-    import anthropic
-
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
-
-
 def _forced(settings: Settings, system: str, prompt: str, tool: dict) -> dict:
-    response = _client(settings).messages.create(
-        model=settings.model,
-        max_tokens=3000,
-        temperature=0.2,
-        system=system,
-        tools=[tool],
-        tool_choice={"type": "tool", "name": tool["name"]},
-        messages=[{"role": "user", "content": prompt}],
-    )
-    for block in response.content:
-        if block.type == "tool_use" and block.name == tool["name"]:
-            return dict(block.input or {})
-    raise RuntimeError("Claude did not return a plan.")
+    from assistant.brain import structured
+
+    return structured(settings, system, prompt, tool["name"], tool["description"], tool["input_schema"])
 
 
 def normalize_steps(raw) -> list[dict]:

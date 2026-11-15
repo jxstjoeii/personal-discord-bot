@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 
 from assistant import pc
+from assistant.brain import claude_status
 from assistant.addons.base import Addon
 from assistant.channel_log import format_log, write_log
 from assistant.tools import AssistantTool, ToolContext
@@ -219,8 +220,8 @@ class PcTasks(Addon):
         settings = self.bot.settings
         if not settings.pc_enabled:
             return "PC commands are turned off. Set PC_COMMANDS=on in .env to use them."
-        if not settings.anthropic_api_key:
-            return "Planning PC commands needs an ANTHROPIC_API_KEY in the .env file."
+        if not claude_status():
+            return "Planning PC commands needs Claude signed in. Run claude setup-token and put the token in CLAUDE_CODE_OAUTH_TOKEN in .env."
         plan = await asyncio.to_thread(pc.plan_task, settings, goal)
         if not plan["possible"]:
             reason = plan["reason"] or "I could not find commands that would do that safely."
@@ -235,9 +236,9 @@ class PcTasks(Addon):
         if not settings.pc_enabled:
             await interaction.response.send_message("PC commands are turned off. Set PC_COMMANDS=on in .env.")
             return
-        if not settings.anthropic_api_key:
+        if not claude_status():
             await interaction.response.send_message(
-                "Planning PC commands needs an ANTHROPIC_API_KEY in the .env file."
+                "Planning PC commands needs Claude signed in. Run claude setup-token and put the token in CLAUDE_CODE_OAUTH_TOKEN in .env."
             )
             return
         await interaction.response.defer(thinking=True)
@@ -245,7 +246,7 @@ class PcTasks(Addon):
             plan = await asyncio.to_thread(pc.plan_task, settings, task.strip()[:1500])
         except Exception:
             log.exception("Planning a PC task failed")
-            await interaction.followup.send("I couldn't reach Claude to plan that. Check ANTHROPIC_API_KEY in .env.")
+            await interaction.followup.send("I couldn't reach Claude to plan that. Check CLAUDE_CODE_OAUTH_TOKEN in .env, or the bot window for details.")
             return
         if not plan["possible"]:
             reason = plan["reason"] or "I could not find commands that would do that safely."

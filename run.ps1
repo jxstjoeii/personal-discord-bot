@@ -9,7 +9,7 @@ if (-not (Test-Path .venv)) {
 
 if (-not (Test-Path .env)) {
     Copy-Item .env.example .env
-    Write-Host "Created .env. Fill in your Discord token, user id, and Anthropic API key, then run this script again."
+    Write-Host "Created .env. Fill in your Discord token, user id, and Claude token (run .\setup-claude.ps1 to get it), then run this script again."
     exit 1
 }
 
