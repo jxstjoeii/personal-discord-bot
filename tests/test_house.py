@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -13,6 +14,9 @@ sys.path.insert(0, str(ROOT))
 
 from assistant.house import FeedError, brief_report, calendar_report, direct_kind, weather_report
 from assistant.ics import events_from_ics, events_from_local, merge_events
+
+# A real setting on this PC must not change what the tests expect.
+os.environ.pop("WEATHER_LOCATION", None)
 
 PACIFIC = ZoneInfo("America/Los_Angeles")
 THURSDAY = datetime(2026, 11, 5, 15, 4, tzinfo=PACIFIC)

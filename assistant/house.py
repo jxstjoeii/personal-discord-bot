@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 import urllib.error
 import urllib.request
 from datetime import date, datetime, timedelta
@@ -80,24 +82,102 @@ def weather_report(
     *,
     briefing: Path | None = None,
     fetch_text=None,
+    location: str | None = None,
 ) -> str:
+    fetch = fetch_text or _fetch_text
+    place = None
     try:
         _root, config = load_briefing(briefing)
+        place = _location(config)
     except (OSError, json.JSONDecodeError, ValueError):
-        return "I can't read the home location from the morning briefing."
-    place = _location(config)
+        pass
+    wanted = (os.getenv("WEATHER_LOCATION", "") if location is None else location).strip()
+    if wanted:
+        units = place[3] if place else _units(os.getenv("WEATHER_UNITS", "fahrenheit"))
+        try:
+            place = _resolve_place(wanted, units, fetch)
+        except Exception as exc:
+            log.warning("Could not find WEATHER_LOCATION %r: %s", wanted, exc)
+            return (
+                f"I couldn't find the place \"{wanted}\" from WEATHER_LOCATION. Try a city and "
+                "state or country, like Portland, OR, or numbers like 45.52, -122.68."
+            )
     if place is None:
-        return "I can't read the home location from the morning briefing."
+        return (
+            "I don't know where home is. Put WEATHER_LOCATION=Your City, State in the .env file, "
+            "then restart Patricia."
+        )
     name, lat, lon, units, tz_name = place
-    fetch = fetch_text or _fetch_text
     try:
         payload = json.loads(fetch(_weather_url(lat, lon, tz_name, units)))
-    except Exception:
-        log.warning("Weather lookup failed")
-        return "I couldn't check the weather."
-    if not isinstance(payload, dict):
-        return "I couldn't check the weather."
+    except FeedError as exc:
+        log.warning("Weather lookup failed: %s %s", exc.host, exc.code)
+        code = f" (error {exc.code})" if exc.code else ""
+        return f"The weather service didn't answer just now{code}. Try again in a few minutes."
+    except Exception as exc:
+        log.warning("Weather lookup failed: %s", exc)
+        return "The weather service sent something I couldn't read. Try again in a few minutes."
+    if not isinstance(payload, dict) or "daily" not in payload:
+        log.warning("Weather lookup returned no forecast: %s", str(payload)[:200])
+        return "The weather service didn't send a forecast. Try again in a few minutes."
     return _format_weather(payload, name, units, now, chosen_days(now, day), zone)
+
+
+_STATES = {
+    "al": "alabama", "ak": "alaska", "az": "arizona", "ar": "arkansas", "ca": "california",
+    "co": "colorado", "ct": "connecticut", "de": "delaware", "fl": "florida", "ga": "georgia",
+    "hi": "hawaii", "id": "idaho", "il": "illinois", "in": "indiana", "ia": "iowa",
+    "ks": "kansas", "ky": "kentucky", "la": "louisiana", "me": "maine", "md": "maryland",
+    "ma": "massachusetts", "mi": "michigan", "mn": "minnesota", "ms": "mississippi",
+    "mo": "missouri", "mt": "montana", "ne": "nebraska", "nv": "nevada", "nh": "new hampshire",
+    "nj": "new jersey", "nm": "new mexico", "ny": "new york", "nc": "north carolina",
+    "nd": "north dakota", "oh": "ohio", "ok": "oklahoma", "or": "oregon", "pa": "pennsylvania",
+    "ri": "rhode island", "sc": "south carolina", "sd": "south dakota", "tn": "tennessee",
+    "tx": "texas", "ut": "utah", "vt": "vermont", "va": "virginia", "wa": "washington",
+    "wv": "west virginia", "wi": "wisconsin", "wy": "wyoming", "dc": "district of columbia",
+}
+_PLACES: dict[tuple[str, str], tuple[str, float, float, str, str]] = {}
+
+
+def _units(text: str) -> str:
+    return "celsius" if str(text).strip().lower() in {"c", "celsius", "metric"} else "fahrenheit"
+
+
+def _resolve_place(text: str, units: str, fetch) -> tuple[str, float, float, str, str]:
+    """A city name or 'lat, lon' -> (name, lat, lon, units, timezone)."""
+    key = (text.lower(), units)
+    if key in _PLACES:
+        return _PLACES[key]
+    numbers = re.fullmatch(r"\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*", text)
+    if numbers:
+        lat, lon = float(numbers.group(1)), float(numbers.group(2))
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError("coordinates out of range")
+        place = ("", lat, lon, units, "auto")
+    else:
+        name, _, extra = text.partition(",")
+        data = json.loads(
+            fetch(
+                "https://geocoding-api.open-meteo.com/v1/search"
+                f"?name={quote(name.strip())}&count=10&language=en&format=json"
+            )
+        )
+        results = data.get("results") if isinstance(data, dict) else None
+        if not results:
+            raise ValueError("no matching place")
+        pick = results[0]
+        extra = extra.strip().lower()
+        if extra:
+            wanted = {extra, _STATES.get(extra, extra)}
+            for item in results:
+                fields = {str(item.get(k) or "").lower() for k in ("admin1", "admin2", "country", "country_code")}
+                if wanted & fields or any(f.startswith(extra) for f in fields if f):
+                    pick = item
+                    break
+        label = ", ".join(str(x) for x in (pick.get("name"), pick.get("admin1")) if x)
+        place = (label, float(pick["latitude"]), float(pick["longitude"]), units, str(pick.get("timezone") or "auto"))
+    _PLACES[key] = place
+    return place
 
 
 def brief_report(
@@ -195,11 +275,7 @@ def _location(config: dict) -> tuple[str, float, float, str, str] | None:
         lon = float(place.get("longitude"))
     except (TypeError, ValueError):
         return None
-    units = str(place.get("units") or "fahrenheit").strip().lower()
-    if units in {"c", "celsius", "metric"}:
-        units = "celsius"
-    else:
-        units = "fahrenheit"
+    units = _units(place.get("units") or "fahrenheit")
     name = str(place.get("name") or "").strip()
     tz_name = str(place.get("timezone") or "auto").strip() or "auto"
     return name, lat, lon, units, tz_name
@@ -218,7 +294,7 @@ def _weather_url(lat: float, lon: float, tz_name: str, units: str) -> str:
         f"&temperature_unit={temp}&wind_speed_unit={wind}&precipitation_unit={precip}"
         "&forecast_days=2"
         "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
-        "&hourly=temperature_2m,weather_code"
+        "&hourly=temperature_2m,weather_code,precipitation_probability"
     )
 
 
@@ -252,6 +328,9 @@ def _format_weather(
                 temp, now_code = current
                 lines.append(f"Right now{where}: {temp} {unit} and {_weather_word(now_code)}.")
                 where = ""
+            soon = _next_hours(payload, now, zone, unit)
+            if soon:
+                lines.append(f"Next few hours: {soon}.")
         lines.append(
             f"{label}{where}: {_weather_word(code)}, high {high} {unit}, low {low} {unit}. "
             f"Rain chance {chance}%."
@@ -278,6 +357,29 @@ def _current(payload: dict, now: datetime, zone: ZoneInfo) -> tuple[int, int] | 
     temp = int(round(_series(hourly.get("temperature_2m"), best)))
     code = int(round(_series(hourly.get("weather_code"), best)))
     return temp, code
+
+
+def _next_hours(payload: dict, now: datetime, zone: ZoneInfo, unit: str) -> str:
+    """Every other hour for the next six hours."""
+    hourly = payload.get("hourly") if isinstance(payload.get("hourly"), dict) else {}
+    times = hourly.get("time") if isinstance(hourly.get("time"), list) else []
+    picked = []
+    for index, stamp in enumerate(times):
+        moment = _local_stamp(str(stamp), zone)
+        if moment is None or moment <= now or moment > now + timedelta(hours=6):
+            continue
+        picked.append((index, moment))
+    parts = []
+    for index, moment in picked[1::2][:3] or picked[:3]:
+        hour = moment.strftime("%I").lstrip("0") or "12"
+        temp = int(round(_series(hourly.get("temperature_2m"), index)))
+        word = _weather_word(int(round(_series(hourly.get("weather_code"), index))))
+        rain = int(round(_series(hourly.get("precipitation_probability"), index)))
+        text = f"{hour} {moment.strftime('%p')} {temp} {unit} {word}"
+        if rain >= 10:
+            text += f" ({rain}% rain)"
+        parts.append(text)
+    return ", ".join(parts)
 
 
 def _local_stamp(value: str, zone: ZoneInfo) -> datetime | None:

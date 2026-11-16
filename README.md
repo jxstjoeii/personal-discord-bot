@@ -15,7 +15,7 @@ Slash commands:
 - `/catalog` browses notes. You can filter with a search or a tag, and page through them.
 - `/chat` talks to Patricia. `/ask` does the same thing.
 - `/brief` gives the time, the weather, today and tomorrow on the calendar, and upcoming reminders.
-- `/calendar` reads today and tomorrow. `/weather` reads the weather at home. These work without Claude signed in.
+- `/calendar` reads today and tomorrow. `/weather` reads the weather at home, with the next few hours. These work without Claude signed in. Set `WEATHER_LOCATION` in `.env` (a city like `Portland, OR`, or coordinates) to choose where home is. Without it, Patricia uses the location in the morning briefing.
 - `/pc` asks Patricia to do something on this PC. See below.
 - `/clear_chat` forgets the recent conversation. Notes and reminders stay.
 - `/addons` lists abilities.
