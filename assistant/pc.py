@@ -103,6 +103,13 @@ function Move-PatriciaWindow($handle, $screen) {
     [PatriciaWin]::SetWindowPos($handle, [IntPtr]::Zero, $x, $y, $width, $height, 0x14) | Out-Null
 }
 
+function Get-PatriciaWindows {
+    $seen = @{}
+    Get-Process | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } |
+        ForEach-Object { $seen[[int64]$_.MainWindowHandle] = $true }
+    return $seen
+}
+
 function Open-Window {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
@@ -111,36 +118,44 @@ function Open-Window {
     $options = @{ FilePath = $FilePath }
     if ($ArgumentList) { $options.ArgumentList = $ArgumentList }
     $game = Get-PatriciaGame
-    if (-not $game) {
-        Start-Process @options
-        Write-Output "Opened $FilePath."
-        return
-    }
-    $screen = Get-PatriciaSafeScreen $game
-    if (-not $screen) {
-        throw "$($game.ProcessName) is running and there is no other screen, so nothing was opened."
-    }
-    $before = @{}
-    Get-Process | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } |
-        ForEach-Object { $before[[int64]$_.MainWindowHandle] = $true }
-    Start-Process @options -WindowStyle Minimized
-    $deadline = (Get-Date).AddSeconds(15)
-    $moved = 0
-    while ((Get-Date) -lt $deadline -and $moved -eq 0) {
-        Start-Sleep -Milliseconds 250
-        Get-Process | Where-Object {
-            $_.MainWindowHandle -ne [IntPtr]::Zero -and
-            $_.Id -ne $game.Id -and
-            -not $before.ContainsKey([int64]$_.MainWindowHandle)
-        } | ForEach-Object {
-            Move-PatriciaWindow $_.MainWindowHandle $screen
-            $moved += 1
+    $screen = $null
+    if ($game) {
+        $screen = Get-PatriciaSafeScreen $game
+        if (-not $screen) {
+            throw "$($game.ProcessName) is running and there is no other screen, so nothing was opened."
         }
     }
-    if ($moved -gt 0) {
-        Write-Output "Opened $FilePath on the screen $($screen.DeviceName), away from $($game.ProcessName)."
+    $before = Get-PatriciaWindows
+    if ($game) {
+        Start-Process @options -WindowStyle Minimized
     } else {
-        Write-Warning "Started $FilePath while $($game.ProcessName) was running, but no new window showed up to move. It may be minimized on the taskbar."
+        Start-Process @options
+    }
+    # Wait for the window, so the check that runs next can see it. Store apps
+    # like Notepad take a moment to start.
+    $deadline = (Get-Date).AddSeconds(15)
+    $found = @()
+    while ((Get-Date) -lt $deadline -and $found.Count -eq 0) {
+        Start-Sleep -Milliseconds 250
+        $found = @(Get-Process | Where-Object {
+            $_.MainWindowHandle -ne [IntPtr]::Zero -and
+            (-not $game -or $_.Id -ne $game.Id) -and
+            -not $before.ContainsKey([int64]$_.MainWindowHandle)
+        })
+    }
+    if ($found.Count -eq 0) {
+        $note = "Started $FilePath, but no new window appeared within 15 seconds. The app may have reused a window it already had open, or started in the background."
+        if ($game) { $note += " $($game.ProcessName) is running, so check the taskbar rather than the game screen." }
+        Write-Output $note
+        return
+    }
+    foreach ($window in $found) {
+        if ($game) { Move-PatriciaWindow $window.MainWindowHandle $screen }
+        $title = $window.MainWindowTitle
+        if (-not $title) { $title = '(no title yet)' }
+        $line = "Opened $FilePath. A new window appeared: '$title' from process $($window.ProcessName) (id $($window.Id))."
+        if ($game) { $line += " Moved it to the screen $($screen.DeviceName), away from $($game.ProcessName)." }
+        Write-Output $line
     }
 }
 """
@@ -444,10 +459,14 @@ def _rules(settings: Settings, game: str | None) -> str:
         "- To open an app, file, folder, or website, always use "
         "Open-Window -FilePath '<path or url or app>' [-ArgumentList '<args>']. Never use "
         "Start-Process, start, ii, Invoke-Item, explorer, or anything else that opens a window. "
-        "Open-Window already exists in every command.\n"
+        "Open-Window already exists in every command. It waits for the new window and prints "
+        "its title and process. Prefer plain names Windows already knows, like notepad, calc, "
+        "or ms-settings: links, over shell:AppsFolder app ids.\n"
         f"- {game_line}\n"
         "- verify_command must only read. It prints what someone would look at to know the goal "
-        "was reached, such as a setting's value, a file listing, or a running process.\n"
+        "was reached, such as a setting's value, a file listing, or a running process. To "
+        "confirm a window, look for it by title, for example Get-Process | Where-Object "
+        "{ $_.MainWindowTitle -like '*Notepad*' } | Select-Object ProcessName, MainWindowTitle.\n"
         "- Do only what was asked. Prefer reversible changes. Set risk to high for deleting "
         "data, changing system settings, installing or uninstalling software, or ending "
         "processes Joeii did not name. Never touch passwords, security tools, the bot's own "
@@ -501,7 +520,9 @@ def judge(settings: Settings, plan: dict, report: RunReport) -> dict:
     }
     prompt = (
         "Joeii approved these commands. Here is what happened, as JSON. Decide from the "
-        "evidence whether his goal was reached. If it was not, say plainly what went wrong "
+        "evidence whether his goal was reached. When Open-Window printed that a new window "
+        "appeared, that is direct proof the app opened, even if the check found nothing. If "
+        "the goal was not reached, say plainly what went wrong "
         "and how to fix it. When commands can fix it, give fix_commands that follow the same "
         "rules.\n\n" + json.dumps(evidence, indent=1)[:20000]
     )
