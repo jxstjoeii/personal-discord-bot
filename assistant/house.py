@@ -166,14 +166,19 @@ def _resolve_place(text: str, units: str, fetch) -> tuple[str, float, float, str
         if not results:
             raise ValueError("no matching place")
         pick = results[0]
-        extra = extra.strip().lower()
-        if extra:
-            wanted = {extra, _STATES.get(extra, extra)}
+        # "Puyallup, Pierce County, Washington" or "Portland, OR": every extra part should fit.
+        extras = [part.strip().lower() for part in extra.split(",") if part.strip()]
+        if extras:
+            best = -1
             for item in results:
                 fields = {str(item.get(k) or "").lower() for k in ("admin1", "admin2", "country", "country_code")}
-                if wanted & fields or any(f.startswith(extra) for f in fields if f):
-                    pick = item
-                    break
+                score = 0
+                for part in extras:
+                    options = {part, _STATES.get(part, part), part.removesuffix(" county")}
+                    if options & fields or any(f.startswith(part) for f in fields if f):
+                        score += 1
+                if score > best:
+                    best, pick = score, item
         label = ", ".join(str(x) for x in (pick.get("name"), pick.get("admin1")) if x)
         place = (label, float(pick["latitude"]), float(pick["longitude"]), units, str(pick.get("timezone") or "auto"))
     _PLACES[key] = place
