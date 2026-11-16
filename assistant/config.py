@@ -30,6 +30,7 @@ class Settings:
     log_channel_id: int | None
     pc_enabled: bool = True
     chat_channel_ids: tuple[int, ...] = ()
+    openrouter_model: str = "openrouter/auto"
     pc_timeout: int = 120
     quiet_games: tuple[str, ...] = ("Overwatch",)
 
@@ -38,7 +39,7 @@ def load_settings() -> Settings:
     load_dotenv(ROOT / ".env")
     # A blank line in .env would still count as "set" for Claude Code, and an
     # API key, even an empty one, outranks the subscription token.
-    for name in ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"):
+    for name in ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "OPENROUTER_API_KEY"):
         if name in os.environ and not os.environ[name].strip():
             del os.environ[name]
     token = os.getenv("DISCORD_TOKEN", "").strip()
@@ -128,6 +129,7 @@ def load_settings() -> Settings:
         log_channel_id=log_channel_id,
         pc_enabled=pc_raw == "on",
         chat_channel_ids=tuple(chat_channel_ids),
+        openrouter_model=os.getenv("OPENROUTER_MODEL", "").strip() or "openrouter/auto",
         pc_timeout=pc_timeout,
         quiet_games=quiet_games,
     )

@@ -38,6 +38,19 @@ She sets reminders from normal sentences, including repeating ones:
 
 Repeating reminders tell you when the next one is. Reply "stop" or "done" to one and she cancels it. `/remind list` shows them all, and `/remind add` has `every` and `until` options too.
 
+## Scheduled jobs
+
+A job is something Patricia does by herself on a schedule. A reminder repeats a fixed message. A job thinks each time: she can check the weather, your calendar, notes, a web search, or a web page, compare with what she found last time, and message you only when there's something worth saying. Ask in plain words:
+
+- "check https://example.com/order/42 every hour and tell me when the status changes, stop once it's delivered"
+- "every morning at 8, tell me if I need an umbrella and what's on my calendar"
+
+Each job remembers what it saw last time, so "tell me when it changes" works. It stops by itself when its goal is reached, or at an `until` time. `/jobs list` shows them and `/jobs cancel` stops one, or just ask her. Jobs run at most every 10 minutes, because each run uses your Claude usage. A job that fails 3 times in a row is paused and she tells you why. Pages that only show content with JavaScript, or need a login, can't be read.
+
+## Backup brain
+
+Patricia thinks with your Claude subscription first. If that fails or hits its usage limit, and `OPENROUTER_API_KEY` is set, she switches to OpenRouter for that message, like Heimdall does. She only switches when nothing has happened yet, so an action never runs twice. OpenRouter is pay per use, so set a spending limit on the key. `OPENROUTER_MODEL` picks the model, and `openrouter/auto` lets OpenRouter choose.
+
 ## Doing things on this PC
 
 Tell Patricia what you want to happen, with `/pc` or in a normal message: "open my downloads folder", "how much space is left on C:", "turn on dark mode". She writes PowerShell commands and a read-only check, and sends them to you with **Yes** and **No** buttons.
@@ -60,7 +73,7 @@ Set `PC_COMMANDS=off` in `.env` to turn this off.
 5. Optional: right-click your server icon, copy the server id, and put it in `DISCORD_GUILD_ID`. Commands then show up in that server right away.
 6. Sign Patricia in to your Claude subscription (Pro, Max, Team, or Enterprise). After `run.ps1` has installed the packages once, run `.\setup-claude.ps1`. Approve it in the browser and paste the token it prints into `.env` as `CLAUDE_CODE_OAUTH_TOKEN`. The token lasts a year. Patricia's chats count toward your plan's usage limits, the same as using Claude yourself. Reminders, notes, the calendar, and the weather work without it. Chat needs it.
 
-   Patricia talks to Claude through the Claude Agent SDK, which runs Claude Code in the background. Claude Code's own tools for running commands, editing files, and browsing are turned off, and it does not read your other Claude Code settings. If you'd rather pay per use, put an API key in `ANTHROPIC_API_KEY` instead. It wins over the token when both are set.
+   Patricia talks to Claude through the Claude Agent SDK, which runs Claude Code in the background. Claude Code's own tools for running commands and editing files are turned off, and only its read-only web search stays on, and it does not read your other Claude Code settings. If you'd rather pay per use, put an API key in `ANTHROPIC_API_KEY` instead. It wins over the token when both are set.
 7. Invite the bot. In the developer portal, open **OAuth2 → URL Generator**. Choose the scopes `bot` and `applications.commands`. Choose the permissions **View Channels**, **Send Messages**, **Embed Links**, and **Read Message History**. Open the generated URL and add the bot to your server.
 
 Allow direct messages from server members, or the reminder DMs cannot arrive.

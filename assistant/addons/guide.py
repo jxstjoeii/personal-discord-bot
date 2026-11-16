@@ -25,6 +25,7 @@ HELP = "\n".join(
         "/brief — time, weather, calendar, and reminders",
         "/calendar — today and tomorrow, read only",
         "/weather — the weather at home",
+        "/jobs list and /jobs cancel — scheduled jobs. Ask in chat to make one, like: check this page every hour",
         "/pc — have Patricia do something on this PC. You see the commands and press Yes or No first",
         "/clear_chat — forget the recent conversation",
         "/addons — list abilities",

@@ -13,6 +13,7 @@ BUILTIN = (
     "assistant.addons.house",
     "assistant.addons.ask",
     "assistant.addons.pc",
+    "assistant.addons.jobs",
     "assistant.addons.guide",
 )
 USER_PREFIX = "user_addons."

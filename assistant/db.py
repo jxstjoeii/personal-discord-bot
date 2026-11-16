@@ -66,6 +66,20 @@ class Database:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                instruction TEXT NOT NULL,
+                repeat_minutes INTEGER NOT NULL,
+                next_at TEXT NOT NULL,
+                until_at TEXT,
+                memory TEXT NOT NULL DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 1,
+                failures INTEGER NOT NULL DEFAULT 0,
+                last_run_at TEXT,
+                last_result TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS pc_tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -358,3 +372,70 @@ class Database:
             )
             self._conn.commit()
             return cursor.rowcount == 1
+
+    def add_job(
+        self,
+        user_id: int,
+        instruction: str,
+        repeat_minutes: int,
+        next_at: datetime,
+        until_at: datetime | None = None,
+    ) -> dict:
+        now = _iso(datetime.now(timezone.utc))
+        with self._lock:
+            cursor = self._conn.execute(
+                """
+                INSERT INTO jobs (user_id, instruction, repeat_minutes, next_at, until_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    instruction.strip(),
+                    repeat_minutes,
+                    _iso(next_at),
+                    _iso(until_at) if until_at else None,
+                    now,
+                ),
+            )
+            self._conn.commit()
+            job_id = int(cursor.lastrowid)
+        return self.get_job(user_id, job_id)
+
+    def get_job(self, user_id: int, job_id: int) -> dict | None:
+        rows = self._rows("SELECT * FROM jobs WHERE id = ? AND user_id = ?", (job_id, user_id))
+        return rows[0] if rows else None
+
+    def list_jobs(self, user_id: int) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM jobs WHERE user_id = ? AND active = 1 ORDER BY next_at ASC, id ASC",
+            (user_id,),
+        )
+
+    def due_jobs(self, now: datetime) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM jobs WHERE active = 1 AND next_at <= ? ORDER BY next_at ASC, id ASC",
+            (_iso(now),),
+        )
+
+    def update_job(self, job_id: int, **fields) -> None:
+        allowed = {"next_at", "memory", "active", "failures", "last_run_at", "last_result"}
+        sets, values = [], []
+        for key, value in fields.items():
+            if key not in allowed:
+                raise ValueError(f"unknown job field {key}")
+            if isinstance(value, datetime):
+                value = _iso(value)
+            sets.append(f"{key} = ?")
+            values.append(value)
+        if not sets:
+            return
+        with self._lock:
+            self._conn.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", (*values, job_id))
+            self._conn.commit()
+
+    def cancel_job(self, user_id: int, job_id: int) -> dict | None:
+        found = self.get_job(user_id, job_id)
+        if found is None or not found["active"]:
+            return None
+        self.update_job(job_id, active=0)
+        return found
