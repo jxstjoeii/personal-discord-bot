@@ -123,13 +123,31 @@ class Ask(Addon):
             "Cleared our recent conversation. Notes and reminders stay.",
         )
 
+    async def _replied_to(self, message: discord.Message) -> discord.Message | None:
+        """The message this one replies to, when it is one of Patricia's."""
+        ref = message.reference
+        if ref is None or ref.message_id is None:
+            return None
+        found = ref.resolved if isinstance(ref.resolved, discord.Message) else None
+        if found is None:
+            try:
+                found = await message.channel.fetch_message(ref.message_id)
+            except discord.HTTPException:
+                return None
+        if self.bot.user is None or found.author.id != self.bot.user.id:
+            return None
+        return found
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
         if message.author.bot or message.author.id != self.bot.settings.owner_id:
             return
-        mentioned = self.bot.user is not None and self.bot.user in message.mentions
-        if message.guild is not None and not mentioned:
-            return
+        replied = await self._replied_to(message)
+        if message.guild is not None:
+            mentioned = self.bot.user is not None and self.bot.user in message.mentions
+            listening = message.channel.id in self.bot.settings.chat_channel_ids
+            if not (mentioned or listening or replied is not None):
+                return
         text = message.content
         if self.bot.user is not None:
             text = text.replace(f"<@{self.bot.user.id}>", "")
@@ -137,6 +155,9 @@ class Ask(Addon):
         text = text.strip()
         if not text:
             return
+        if replied is not None:
+            quoted = replied.content or (replied.embeds[0].title if replied.embeds else "") or ""
+            text = f'(Replying to Patricia\'s message: "{quoted[:600]}")\n{text}'
         source = "Discord DM" if message.guild is None else f"#{message.channel}"
         async with message.channel.typing():
             answer = await self.reply_to_text(

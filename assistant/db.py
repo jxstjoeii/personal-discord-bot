@@ -30,6 +30,15 @@ class Database:
                 self._conn = None
 
     def _migrate(self) -> None:
+        self._create_tables()
+        columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(reminders)")}
+        if "repeat_minutes" not in columns:
+            self._conn.execute("ALTER TABLE reminders ADD COLUMN repeat_minutes INTEGER")
+        if "until_at" not in columns:
+            self._conn.execute("ALTER TABLE reminders ADD COLUMN until_at TEXT")
+        self._conn.commit()
+
+    def _create_tables(self) -> None:
         self._conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS reminders (
@@ -78,15 +87,29 @@ class Database:
             cursor = self._conn.execute(sql, params)
             return [dict(row) for row in cursor.fetchall()]
 
-    def add_reminder(self, user_id: int, text: str, due_at: datetime) -> dict:
+    def add_reminder(
+        self,
+        user_id: int,
+        text: str,
+        due_at: datetime,
+        repeat_minutes: int | None = None,
+        until_at: datetime | None = None,
+    ) -> dict:
         now = _iso(datetime.now(timezone.utc))
         with self._lock:
             cursor = self._conn.execute(
                 """
-                INSERT INTO reminders (user_id, text, due_at, created_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO reminders (user_id, text, due_at, created_at, repeat_minutes, until_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (user_id, text.strip(), _iso(due_at), now),
+                (
+                    user_id,
+                    text.strip(),
+                    _iso(due_at),
+                    now,
+                    repeat_minutes,
+                    _iso(until_at) if until_at else None,
+                ),
             )
             self._conn.commit()
             reminder_id = cursor.lastrowid
@@ -143,6 +166,14 @@ class Database:
             self._conn.execute(
                 "UPDATE reminders SET sent = 1 WHERE id = ?",
                 (reminder_id,),
+            )
+            self._conn.commit()
+
+    def reschedule_reminder(self, reminder_id: int, due_at: datetime) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE reminders SET due_at = ?, attempts = 0 WHERE id = ?",
+                (_iso(due_at), reminder_id),
             )
             self._conn.commit()
 

@@ -26,6 +26,18 @@ You can also send a normal message in a DM, or mention the bot in a server. "Rem
 
 Reminders arrive as a direct message. The bot checks every 15 seconds, so it has to stay running. If the computer is asleep, a due reminder is sent after it wakes up.
 
+## Talking to Patricia
+
+DM her in plain words. You don't need slash commands. In a server, @mention her, reply to one of her messages, or list the channel in `CHAT_CHANNEL_IDS` so she reads everything you write there.
+
+She sets reminders from normal sentences, including repeating ones:
+
+- "remind me to take the chicken out at 5"
+- "ping me every 30 minutes to list the nerf until I say stop"
+- "every day at 9am remind me to stretch, until friday"
+
+Repeating reminders tell you when the next one is. Reply "stop" or "done" to one and she cancels it. `/remind list` shows them all, and `/remind add` has `every` and `until` options too.
+
 ## Doing things on this PC
 
 Tell Patricia what you want to happen, with `/pc` or in a normal message: "open my downloads folder", "how much space is left on C:", "turn on dark mode". She writes PowerShell commands and a read-only check, and sends them to you with **Yes** and **No** buttons.

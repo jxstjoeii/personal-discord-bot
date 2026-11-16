@@ -29,6 +29,7 @@ class Settings:
     phone_port: int
     log_channel_id: int | None
     pc_enabled: bool = True
+    chat_channel_ids: tuple[int, ...] = ()
     pc_timeout: int = 120
     quiet_games: tuple[str, ...] = ("Overwatch",)
 
@@ -104,6 +105,15 @@ def load_settings() -> Settings:
     quiet_games = tuple(
         name.strip().removesuffix(".exe") for name in games_raw.split(",") if name.strip()
     )
+    chat_channel_ids: list[int] = []
+    for part in os.getenv("CHAT_CHANNEL_IDS", "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            chat_channel_ids.append(int(part))
+        except ValueError as exc:
+            raise ConfigError("CHAT_CHANNEL_IDS has to be numeric channel ids separated by commas.") from exc
     return Settings(
         discord_token=token,
         owner_id=owner_id,
@@ -117,6 +127,7 @@ def load_settings() -> Settings:
         phone_port=phone_port,
         log_channel_id=log_channel_id,
         pc_enabled=pc_raw == "on",
+        chat_channel_ids=tuple(chat_channel_ids),
         pc_timeout=pc_timeout,
         quiet_games=quiet_games,
     )
