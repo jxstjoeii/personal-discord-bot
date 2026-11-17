@@ -68,6 +68,13 @@ class Database:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS game_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL,
+                ended_at TEXT
+            );
             CREATE TABLE IF NOT EXISTS daily_marks (
                 name TEXT NOT NULL,
                 day TEXT NOT NULL,
@@ -610,3 +617,31 @@ class Database:
             )
             self._conn.commit()
             return cursor.rowcount == 1
+
+    def open_game_session(self) -> dict | None:
+        rows = self._rows("SELECT * FROM game_sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1")
+        return rows[0] if rows else None
+
+    def start_game_session(self, game: str, now: datetime) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO game_sessions (game, started_at, last_seen_at) VALUES (?, ?, ?)",
+                (game, _iso(now), _iso(now)),
+            )
+            self._conn.commit()
+
+    def touch_game_session(self, session_id: int, now: datetime) -> None:
+        with self._lock:
+            self._conn.execute("UPDATE game_sessions SET last_seen_at = ? WHERE id = ?", (_iso(now), session_id))
+            self._conn.commit()
+
+    def end_game_session(self, session_id: int, ended_at: datetime) -> None:
+        with self._lock:
+            self._conn.execute("UPDATE game_sessions SET ended_at = ? WHERE id = ?", (_iso(ended_at), session_id))
+            self._conn.commit()
+
+    def game_sessions_since(self, since: datetime) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM game_sessions WHERE COALESCE(ended_at, last_seen_at) >= ? ORDER BY started_at ASC",
+            (_iso(since),),
+        )

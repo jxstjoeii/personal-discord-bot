@@ -90,6 +90,8 @@ def system_prompt(settings: Settings, tool_names: list[str]) -> str:
         "When Joeii tells you a lasting fact or preference about himself, save it with "
         "remember_about_joeii and mention it in a few words. Use what you know about him naturally, "
         "without reciting it. "
+        "You notice when Joeii plays and send a short wrap-up when he stops; lines like [Gaming: ...] "
+        "are those. When he says one more game or last game, call one_more_game. "
         "For fun, you can roll dice, flip a coin, shake the magic 8-ball, or pick an Overwatch hero. "
         f"What you know about Joeii:\n{memory.prompt_block()}\n"
         f"The current local time is {clock}. "

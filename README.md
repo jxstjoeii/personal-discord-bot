@@ -46,6 +46,16 @@ At 8:00 AM Patricia DMs you a short good morning: the weather, whether it's a mo
 
 When you tell Patricia something lasting about yourself, like your main heroes, your classes, or how you like reminders, she saves it to `data/about-joeii.md` and uses it in every chat. The `data` folder is in `.gitignore`, so this file never goes to GitHub. It stays on your PC, and it's sent to Claude only as part of your chats. `/aboutme` shows what she knows. Ask her to forget something, or edit the file by hand: one fact per line, starting with `- `.
 
+## Gaming
+
+Patricia checks once a minute whether a game in `QUIET_GAMES` (Overwatch) is running. When you close it after at least 10 minutes, she DMs a wrap-up: how long you played, from when to when, and your total this week. If it's past bedtime, she nudges you toward bed.
+
+Say "one more game" (or use `/onemore`) and she gives you 20 minutes. If the game is still open then, she pings you, and once more 10 minutes later. If you close it in time, the wrap-up says you kept your word. `/gaming` shows today's and this week's play time. All of this only reads which programs are running. It never opens anything over your game.
+
+## Weekly PC check-up
+
+Every Sunday at 6 PM, Patricia DMs a read-only check-up: free disk space, waiting Windows updates or a pending restart, how long since the PC restarted, whether Tailscale is connected (so Remote Desktop from school works), whether her start-up task is installed, and any errors in her log. `/pchealth` runs it any time. It runs hidden, so nothing flashes on screen.
+
 ## Fun
 
 `/roll` (like `2d6`), `/flip`, `/8ball`, and `/hero` (a random Overwatch hero, optionally by role). You can also just ask her in chat. Edit the hero list in `assistant/morning_core.py`.
