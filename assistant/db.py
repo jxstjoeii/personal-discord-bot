@@ -68,6 +68,11 @@ class Database:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS daily_marks (
+                name TEXT NOT NULL,
+                day TEXT NOT NULL,
+                PRIMARY KEY (name, day)
+            );
             CREATE TABLE IF NOT EXISTS assignments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -596,3 +601,12 @@ class Database:
                 "UPDATE assignments SET sent = ? WHERE id = ?", (json.dumps(sent), assignment_id)
             )
             self._conn.commit()
+
+    def mark_daily(self, name: str, day: str) -> bool:
+        """True the first time (name, day) is marked, False after that."""
+        with self._lock:
+            cursor = self._conn.execute(
+                "INSERT OR IGNORE INTO daily_marks (name, day) VALUES (?, ?)", (name, day)
+            )
+            self._conn.commit()
+            return cursor.rowcount == 1

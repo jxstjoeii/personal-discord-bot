@@ -38,6 +38,18 @@ She sets reminders from normal sentences, including repeating ones:
 
 Repeating reminders tell you when the next one is. Reply "stop" or "done" to one and she cancels it. `/remind list` shows them all, and `/remind add` has `every` and `until` options too.
 
+## Morning hello
+
+At 8:00 AM Patricia DMs you a short good morning: the weather, whether it's a motorcycle riding day (using the riding rules in the morning briefing's `motorcycle` settings), anything due in the next 3 days, today's reminders, and a fun closer: the Overwatch hero of the day with a small challenge, plus a joke or a fun fact. If the PC was off at 8, she sends it when she comes online, until noon. `/morning` shows it any time. Change the time with `MORNING_TIME`, or turn it off with `MORNING_HELLO=off`.
+
+## What she remembers about you
+
+When you tell Patricia something lasting about yourself, like your main heroes, your classes, or how you like reminders, she saves it to `data/about-joeii.md` and uses it in every chat. The `data` folder is in `.gitignore`, so this file never goes to GitHub. It stays on your PC, and it's sent to Claude only as part of your chats. `/aboutme` shows what she knows. Ask her to forget something, or edit the file by hand: one fact per line, starting with `- `.
+
+## Fun
+
+`/roll` (like `2d6`), `/flip`, `/8ball`, and `/hero` (a random Overwatch hero, optionally by role). You can also just ask her in chat. Edit the hero list in `assistant/morning_core.py`.
+
 ## Assignments
 
 Tell Patricia what's due: "my history essay is due friday 11:59pm" or "bio test on dec 3". A day with no time counts as 11:59 PM. She reminds you 3 days before and the day before at 5 PM, the morning it's due at 8 AM, and 2 hours before when it's due later in the day. If it's past due, she asks once whether you turned it in. Every reminder has a **✅ Done** button that stops the rest. Ask "what's due?" for the list, or use `/assignments add`, `/assignments list`, and `/assignments done`. You can also tell her a due date moved.

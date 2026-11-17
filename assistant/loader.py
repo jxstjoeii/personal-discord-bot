@@ -17,6 +17,9 @@ BUILTIN = (
     "assistant.addons.bedtime",
     "assistant.addons.meds",
     "assistant.addons.assignments",
+    "assistant.addons.morning",
+    "assistant.addons.memory",
+    "assistant.addons.fun",
     "assistant.addons.status",
     "assistant.addons.guide",
 )

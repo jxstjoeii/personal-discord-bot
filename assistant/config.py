@@ -41,6 +41,8 @@ class Settings:
     meds_until: time = time(13, 0)
     meds_every: int = 60
     meds_name: str = ""
+    morning_enabled: bool = True
+    morning_time: time = time(8, 0)
     pc_timeout: int = 120
     quiet_games: tuple[str, ...] = ("Overwatch",)
 
@@ -157,6 +159,13 @@ def load_settings() -> Settings:
         raise ConfigError("MEDS_EVERY has to be a number of minutes, like 60.") from exc
     if not 10 <= meds_every <= 240:
         raise ConfigError("MEDS_EVERY has to be between 10 and 240 minutes.")
+    morning_raw = os.getenv("MORNING_HELLO", "on").strip().lower() or "on"
+    if morning_raw not in ("on", "off"):
+        raise ConfigError("MORNING_HELLO has to be on or off.")
+    try:
+        morning_time = parse_clock(os.getenv("MORNING_TIME", "8:00").strip() or "8:00")
+    except ValueError as exc:
+        raise ConfigError("MORNING_TIME has to be a time like 8:00 or 7:30am.") from exc
     return Settings(
         discord_token=token,
         owner_id=owner_id,
@@ -181,6 +190,8 @@ def load_settings() -> Settings:
         meds_until=meds_until,
         meds_every=meds_every,
         meds_name=os.getenv("MEDS_NAME", "").strip(),
+        morning_enabled=morning_raw == "on",
+        morning_time=morning_time,
         pc_timeout=pc_timeout,
         quiet_games=quiet_games,
     )
