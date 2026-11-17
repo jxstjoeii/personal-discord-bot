@@ -68,6 +68,17 @@ class Database:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                course TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '',
+                due_at TEXT NOT NULL,
+                sent TEXT NOT NULL DEFAULT '[]',
+                done_at TEXT,
+                created_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS meds (
                 day TEXT PRIMARY KEY,
                 nudges INTEGER NOT NULL DEFAULT 0,
@@ -513,3 +524,75 @@ class Database:
             "SELECT day FROM meds WHERE taken_at IS NOT NULL ORDER BY day DESC LIMIT ?", (limit,)
         )
         return [row["day"] for row in rows]
+
+    def add_assignment(self, user_id: int, title: str, course: str, notes: str, due_at: datetime) -> dict:
+        now = _iso(datetime.now(timezone.utc))
+        with self._lock:
+            cursor = self._conn.execute(
+                """
+                INSERT INTO assignments (user_id, title, course, notes, due_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (user_id, title, course, notes, _iso(due_at), now),
+            )
+            self._conn.commit()
+            new_id = int(cursor.lastrowid)
+        return self._rows("SELECT * FROM assignments WHERE id = ?", (new_id,))[0]
+
+    def list_assignments(self, user_id: int) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM assignments WHERE user_id = ? AND done_at IS NULL ORDER BY due_at ASC, id ASC",
+            (user_id,),
+        )
+
+    def open_assignments(self) -> list[dict]:
+        return self._rows("SELECT * FROM assignments WHERE done_at IS NULL ORDER BY due_at ASC")
+
+    def _open_assignment(self, user_id: int, assignment_id: int) -> dict | None:
+        rows = self._rows(
+            "SELECT * FROM assignments WHERE id = ? AND user_id = ? AND done_at IS NULL",
+            (assignment_id, user_id),
+        )
+        return rows[0] if rows else None
+
+    def complete_assignment(self, user_id: int, assignment_id: int) -> dict | None:
+        row = self._open_assignment(user_id, assignment_id)
+        if row is None:
+            return None
+        with self._lock:
+            self._conn.execute(
+                "UPDATE assignments SET done_at = ? WHERE id = ?",
+                (_iso(datetime.now(timezone.utc)), assignment_id),
+            )
+            self._conn.commit()
+        return row
+
+    def move_assignment(self, user_id: int, assignment_id: int, due_at: datetime) -> dict | None:
+        """New due date. Reminders start over from now, so past ones don't all fire at once."""
+        if self._open_assignment(user_id, assignment_id) is None:
+            return None
+        with self._lock:
+            self._conn.execute(
+                "UPDATE assignments SET due_at = ?, sent = '[]', created_at = ? WHERE id = ?",
+                (_iso(due_at), _iso(datetime.now(timezone.utc)), assignment_id),
+            )
+            self._conn.commit()
+        return self._open_assignment(user_id, assignment_id)
+
+    def remove_assignment(self, user_id: int, assignment_id: int) -> dict | None:
+        rows = self._rows(
+            "SELECT * FROM assignments WHERE id = ? AND user_id = ?", (assignment_id, user_id)
+        )
+        if not rows:
+            return None
+        with self._lock:
+            self._conn.execute("DELETE FROM assignments WHERE id = ?", (assignment_id,))
+            self._conn.commit()
+        return rows[0]
+
+    def mark_assignment_sent(self, assignment_id: int, sent: list[str]) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE assignments SET sent = ? WHERE id = ?", (json.dumps(sent), assignment_id)
+            )
+            self._conn.commit()

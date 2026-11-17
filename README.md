@@ -38,6 +38,10 @@ She sets reminders from normal sentences, including repeating ones:
 
 Repeating reminders tell you when the next one is. Reply "stop" or "done" to one and she cancels it. `/remind list` shows them all, and `/remind add` has `every` and `until` options too.
 
+## Assignments
+
+Tell Patricia what's due: "my history essay is due friday 11:59pm" or "bio test on dec 3". A day with no time counts as 11:59 PM. She reminds you 3 days before and the day before at 5 PM, the morning it's due at 8 AM, and 2 hours before when it's due later in the day. If it's past due, she asks once whether you turned it in. Every reminder has a **✅ Done** button that stops the rest. Ask "what's due?" for the list, or use `/assignments add`, `/assignments list`, and `/assignments done`. You can also tell her a due date moved.
+
 ## Medication check-in
 
 At 9:00 AM Patricia DMs you to take your morning meds, with **✅ Took them** and **⏰ Snooze 30 min** buttons. If you don't tap one, she asks again every hour until 1 PM, then lets it go for the day. Tapping ✅, telling her in chat ("took my pills"), or `/meds took` logs it, and she tells you your streak. `/meds status` shows today and the streak. The name of the medication comes from the morning briefing's `medication` list, or set `MEDS_NAME`. Change the times with `MEDS_TIME`, `MEDS_EVERY`, and `MEDS_UNTIL`, or turn it off with `MEDS=off`.
