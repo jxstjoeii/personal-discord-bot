@@ -42,6 +42,20 @@ Repeating reminders tell you when the next one is. Reply "stop" or "done" to one
 
 From 8:30 PM, Patricia DMs you every 30 minutes to get ready for bed. She's firm but kind, gets a little firmer as it gets later, and gives you one concrete next step each time. Every nudge has an **I'm going to bed** button. Pressing it, telling her you're going to bed in chat, or `/bedtime done` stops the nudges for the night. Turning the PC off stops them too, since she runs on it. If the PC comes back on before the night ends (4 AM), she picks up again. `/bedtime status` shows the schedule. Change it with `BEDTIME_START`, `BEDTIME_EVERY`, and `BEDTIME_END` in `.env`, or turn it off with `BEDTIME=off`. If Claude can't be reached, she uses a set of fixed nudges.
 
+## Keep her running
+
+Run this once from the bot folder:
+
+```powershell
+.\install-startup.ps1
+```
+
+It adds a Windows scheduled task named "Patricia Bot". She starts by herself about 20 seconds after you sign in, with no window, so nothing can be closed by accident or flash over a game. If she stops for any reason, the task brings her back within 5 minutes. Her log is at `%LOCALAPPDATA%\PatriciaBot\bot.log`.
+
+- After `.\sync.ps1` pulls an update, run `.\restart.ps1`.
+- `.\run.ps1` still works for watching her in a window. Close that window and the background copy takes over within 5 minutes.
+- `.\install-startup.ps1 -Remove` stops her from starting by herself.
+
 ## Status
 
 Patricia's Discord status follows the time and what you're doing, and changes to a new line every 15 minutes: Overwatch lines while a game in `QUIET_GAMES` is running, bossy bedtime lines after `BEDTIME_START` until you go to bed, sleepy ones after you say good night, and morning, daytime, and evening sets the rest of the time. Edit the lines in `assistant/status_core.py`.
