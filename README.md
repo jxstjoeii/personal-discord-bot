@@ -38,6 +38,10 @@ She sets reminders from normal sentences, including repeating ones:
 
 Repeating reminders tell you when the next one is. Reply "stop" or "done" to one and she cancels it. `/remind list` shows them all, and `/remind add` has `every` and `until` options too.
 
+## Bedtime
+
+From 8:30 PM, Patricia DMs you every 30 minutes to get ready for bed. She's firm but kind, gets a little firmer as it gets later, and gives you one concrete next step each time. Every nudge has an **I'm going to bed** button. Pressing it, telling her you're going to bed in chat, or `/bedtime done` stops the nudges for the night. Turning the PC off stops them too, since she runs on it. If the PC comes back on before the night ends (4 AM), she picks up again. `/bedtime status` shows the schedule. Change it with `BEDTIME_START`, `BEDTIME_EVERY`, and `BEDTIME_END` in `.env`, or turn it off with `BEDTIME=off`. If Claude can't be reached, she uses a set of fixed nudges.
+
 ## Scheduled jobs
 
 A job is something Patricia does by herself on a schedule. A reminder repeats a fixed message. A job thinks each time: she can check the weather, your calendar, notes, a web search, or a web page, compare with what she found last time, and message you only when there's something worth saying. Ask in plain words:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -65,6 +67,12 @@ class Database:
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS bedtime (
+                night TEXT PRIMARY KEY,
+                last_slot INTEGER,
+                messages TEXT NOT NULL DEFAULT '[]',
+                done_at TEXT
             );
             CREATE TABLE IF NOT EXISTS jobs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -439,3 +447,30 @@ class Database:
             return None
         self.update_job(job_id, active=0)
         return found
+
+    def get_bedtime(self, night: str) -> dict | None:
+        rows = self._rows("SELECT * FROM bedtime WHERE night = ?", (night,))
+        return rows[0] if rows else None
+
+    def save_bedtime(self, night: str, last_slot: int, messages: list[str]) -> None:
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO bedtime (night, last_slot, messages) VALUES (?, ?, ?)
+                ON CONFLICT(night) DO UPDATE SET last_slot = excluded.last_slot, messages = excluded.messages
+                """,
+                (night, last_slot, json.dumps(messages)),
+            )
+            self._conn.commit()
+
+    def finish_bedtime(self, night: str) -> None:
+        now = _iso(datetime.now(timezone.utc))
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO bedtime (night, done_at) VALUES (?, ?)
+                ON CONFLICT(night) DO UPDATE SET done_at = excluded.done_at
+                """,
+                (night, now),
+            )
+            self._conn.commit()

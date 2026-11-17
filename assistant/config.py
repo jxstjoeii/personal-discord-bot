@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import time
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -31,6 +32,10 @@ class Settings:
     pc_enabled: bool = True
     chat_channel_ids: tuple[int, ...] = ()
     openrouter_model: str = "openrouter/auto"
+    bedtime_enabled: bool = True
+    bedtime_start: time = time(20, 30)
+    bedtime_end: time = time(4, 0)
+    bedtime_every: int = 30
     pc_timeout: int = 120
     quiet_games: tuple[str, ...] = ("Overwatch",)
 
@@ -115,6 +120,22 @@ def load_settings() -> Settings:
             chat_channel_ids.append(int(part))
         except ValueError as exc:
             raise ConfigError("CHAT_CHANNEL_IDS has to be numeric channel ids separated by commas.") from exc
+    from assistant.bedtime_core import parse_clock
+
+    bed_raw = os.getenv("BEDTIME", "on").strip().lower() or "on"
+    if bed_raw not in ("on", "off"):
+        raise ConfigError("BEDTIME has to be on or off.")
+    try:
+        bed_start = parse_clock(os.getenv("BEDTIME_START", "20:30").strip() or "20:30")
+        bed_end = parse_clock(os.getenv("BEDTIME_END", "04:00").strip() or "04:00")
+    except ValueError as exc:
+        raise ConfigError("BEDTIME_START and BEDTIME_END have to be times like 20:30 or 8:30pm.") from exc
+    try:
+        bed_every = int(os.getenv("BEDTIME_EVERY", "30").strip() or "30")
+    except ValueError as exc:
+        raise ConfigError("BEDTIME_EVERY has to be a number of minutes, like 30.") from exc
+    if not 5 <= bed_every <= 180:
+        raise ConfigError("BEDTIME_EVERY has to be between 5 and 180 minutes.")
     return Settings(
         discord_token=token,
         owner_id=owner_id,
@@ -130,6 +151,10 @@ def load_settings() -> Settings:
         pc_enabled=pc_raw == "on",
         chat_channel_ids=tuple(chat_channel_ids),
         openrouter_model=os.getenv("OPENROUTER_MODEL", "").strip() or "openrouter/auto",
+        bedtime_enabled=bed_raw == "on",
+        bedtime_start=bed_start,
+        bedtime_end=bed_end,
+        bedtime_every=bed_every,
         pc_timeout=pc_timeout,
         quiet_games=quiet_games,
     )
