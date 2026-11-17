@@ -70,12 +70,10 @@ class AssistantBot(commands.Bot):
         log.info("Synced %s global commands", len(synced))
 
     async def on_ready(self) -> None:
-        await self.change_presence(
-            activity=discord.Activity(
-                type=discord.ActivityType.listening,
-                name="the house",
-            )
-        )
+        status = self.get_cog("Status")
+        if status is not None:
+            # After a reconnect, set the status again on the next check.
+            status._mood = None
         log.info("Logged in as %s", self.user)
         if self.settings.log_channel_id is not None and not getattr(self, "_announced_log", False):
             self._announced_log = True

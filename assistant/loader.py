@@ -15,6 +15,7 @@ BUILTIN = (
     "assistant.addons.pc",
     "assistant.addons.jobs",
     "assistant.addons.bedtime",
+    "assistant.addons.status",
     "assistant.addons.guide",
 )
 USER_PREFIX = "user_addons."
