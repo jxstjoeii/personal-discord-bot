@@ -38,6 +38,10 @@ She sets reminders from normal sentences, including repeating ones:
 
 Repeating reminders tell you when the next one is. Reply "stop" or "done" to one and she cancels it. `/remind list` shows them all, and `/remind add` has `every` and `until` options too.
 
+## Medication check-in
+
+At 9:00 AM Patricia DMs you to take your morning meds, with **✅ Took them** and **⏰ Snooze 30 min** buttons. If you don't tap one, she asks again every hour until 1 PM, then lets it go for the day. Tapping ✅, telling her in chat ("took my pills"), or `/meds took` logs it, and she tells you your streak. `/meds status` shows today and the streak. The name of the medication comes from the morning briefing's `medication` list, or set `MEDS_NAME`. Change the times with `MEDS_TIME`, `MEDS_EVERY`, and `MEDS_UNTIL`, or turn it off with `MEDS=off`.
+
 ## Bedtime
 
 From 8:30 PM, Patricia DMs you every 30 minutes to get ready for bed. She's firm but kind, gets a little firmer as it gets later, and gives you one concrete next step each time. Every nudge has an **I'm going to bed** button. Pressing it, telling her you're going to bed in chat, or `/bedtime done` stops the nudges for the night. Turning the PC off stops them too, since she runs on it. If the PC comes back on before the night ends (4 AM), she picks up again. `/bedtime status` shows the schedule. Change it with `BEDTIME_START`, `BEDTIME_EVERY`, and `BEDTIME_END` in `.env`, or turn it off with `BEDTIME=off`. If Claude can't be reached, she uses a set of fixed nudges.

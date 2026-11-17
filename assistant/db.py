@@ -68,6 +68,12 @@ class Database:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS meds (
+                day TEXT PRIMARY KEY,
+                nudges INTEGER NOT NULL DEFAULT 0,
+                next_at TEXT,
+                taken_at TEXT
+            );
             CREATE TABLE IF NOT EXISTS bedtime (
                 night TEXT PRIMARY KEY,
                 last_slot INTEGER,
@@ -474,3 +480,36 @@ class Database:
                 (night, now),
             )
             self._conn.commit()
+
+    def get_meds(self, day: str) -> dict | None:
+        rows = self._rows("SELECT * FROM meds WHERE day = ?", (day,))
+        return rows[0] if rows else None
+
+    def save_meds(self, day: str, nudges: int, next_at: datetime) -> None:
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO meds (day, nudges, next_at) VALUES (?, ?, ?)
+                ON CONFLICT(day) DO UPDATE SET nudges = excluded.nudges, next_at = excluded.next_at
+                """,
+                (day, nudges, _iso(next_at)),
+            )
+            self._conn.commit()
+
+    def take_meds(self, day: str) -> None:
+        now = _iso(datetime.now(timezone.utc))
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO meds (day, taken_at) VALUES (?, ?)
+                ON CONFLICT(day) DO UPDATE SET taken_at = excluded.taken_at
+                """,
+                (day, now),
+            )
+            self._conn.commit()
+
+    def meds_taken_days(self, limit: int = 400) -> list[str]:
+        rows = self._rows(
+            "SELECT day FROM meds WHERE taken_at IS NOT NULL ORDER BY day DESC LIMIT ?", (limit,)
+        )
+        return [row["day"] for row in rows]

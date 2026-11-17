@@ -22,20 +22,24 @@ function Invoke-Git {
     return $output
 }
 
-# Bring Patricia back if she is not running. This runs first, so a failed sync can't skip it.
-try {
-    $bot = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" |
-        Where-Object { $_.CommandLine -match "bot\.py" }
-    $starter = Join-Path $PSScriptRoot "start-hidden.vbs"
-    if (-not $bot -and (Test-Path $starter)) {
-        Start-Process -FilePath "wscript.exe" -ArgumentList "`"$starter`""
-        Write-Log "Patricia was not running, so she was started in the background."
+# Brings Patricia back if she is not running. It runs after the sync (in finally), so she
+# starts with the newest code, and a failed sync can't skip it.
+function Start-PatriciaIfStopped {
+    try {
+        $bot = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" |
+            Where-Object { $_.CommandLine -match "bot\.py" }
+        $starter = Join-Path $PSScriptRoot "start-hidden.vbs"
+        if (-not $bot -and (Test-Path $starter)) {
+            Start-Process -FilePath "wscript.exe" -ArgumentList "`"$starter`""
+            Write-Log "Patricia was not running, so she was started in the background."
+        }
+    }
+    catch {
+        Write-Log "Could not check on Patricia: $($_.Exception.Message)"
     }
 }
-catch {
-    Write-Log "Could not check on Patricia: $($_.Exception.Message)"
-}
 
+try {
 try {
     Invoke-Git add -A | Out-Null
     $staged = @(Invoke-Git diff --cached --name-only | Where-Object { $_ -and $_.ToString().Trim() })
@@ -60,4 +64,8 @@ catch {
     git rebase --abort 2>&1 | Out-Null
     Write-Log $_.Exception.Message
     exit 1
+}
+}
+finally {
+    Start-PatriciaIfStopped
 }

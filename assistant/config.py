@@ -36,6 +36,11 @@ class Settings:
     bedtime_start: time = time(20, 30)
     bedtime_end: time = time(4, 0)
     bedtime_every: int = 30
+    meds_enabled: bool = True
+    meds_start: time = time(9, 0)
+    meds_until: time = time(13, 0)
+    meds_every: int = 60
+    meds_name: str = ""
     pc_timeout: int = 120
     quiet_games: tuple[str, ...] = ("Overwatch",)
 
@@ -136,6 +141,22 @@ def load_settings() -> Settings:
         raise ConfigError("BEDTIME_EVERY has to be a number of minutes, like 30.") from exc
     if not 5 <= bed_every <= 180:
         raise ConfigError("BEDTIME_EVERY has to be between 5 and 180 minutes.")
+    meds_raw = os.getenv("MEDS", "on").strip().lower() or "on"
+    if meds_raw not in ("on", "off"):
+        raise ConfigError("MEDS has to be on or off.")
+    try:
+        meds_start = parse_clock(os.getenv("MEDS_TIME", "9:00").strip() or "9:00")
+        meds_until = parse_clock(os.getenv("MEDS_UNTIL", "13:00").strip() or "13:00")
+    except ValueError as exc:
+        raise ConfigError("MEDS_TIME and MEDS_UNTIL have to be times like 9:00 or 1pm.") from exc
+    if meds_until <= meds_start:
+        raise ConfigError("MEDS_UNTIL has to be later in the day than MEDS_TIME.")
+    try:
+        meds_every = int(os.getenv("MEDS_EVERY", "60").strip() or "60")
+    except ValueError as exc:
+        raise ConfigError("MEDS_EVERY has to be a number of minutes, like 60.") from exc
+    if not 10 <= meds_every <= 240:
+        raise ConfigError("MEDS_EVERY has to be between 10 and 240 minutes.")
     return Settings(
         discord_token=token,
         owner_id=owner_id,
@@ -155,6 +176,11 @@ def load_settings() -> Settings:
         bedtime_start=bed_start,
         bedtime_end=bed_end,
         bedtime_every=bed_every,
+        meds_enabled=meds_raw == "on",
+        meds_start=meds_start,
+        meds_until=meds_until,
+        meds_every=meds_every,
+        meds_name=os.getenv("MEDS_NAME", "").strip(),
         pc_timeout=pc_timeout,
         quiet_games=quiet_games,
     )
