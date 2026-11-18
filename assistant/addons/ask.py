@@ -71,8 +71,8 @@ class Ask(Addon):
             except Exception:
                 log.exception("Question failed")
                 answer = (
-                    "Chat could not reach Claude. Check CLAUDE_CODE_OAUTH_TOKEN in .env, or the bot window for details. "
-                    "Calendar, weather, reminders, and notes still work."
+                    "Something went wrong while I was answering, so I stopped. The details are in my log "
+                    "(%LOCALAPPDATA%\\PatriciaBot\\bot.log). Calendar, weather, reminders, and notes still work."
                 )
             else:
                 saved = f"[sent {len(images)} picture(s)] {cleaned}" if images else cleaned

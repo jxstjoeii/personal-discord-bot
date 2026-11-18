@@ -164,6 +164,8 @@ def _options(settings: Settings, system: str, server, tool_names: list[str], max
         setting_sources=[],
         max_turns=max_turns,
         cwd=str(WORKDIR),
+        # Screenshots come back through one JSON message; the 1 MB default is too small.
+        max_buffer_size=32 * 1024 * 1024,
     )
 
 

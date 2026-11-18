@@ -31,7 +31,7 @@ class Picture:
         return base64.b64encode(self.data).decode("ascii")
 
 
-def prepare(data: bytes, mime: str, label: str = "") -> Picture | None:
+def prepare(data: bytes, mime: str, label: str = "", quality: int = 85) -> Picture | None:
     """Shrinks a picture so Claude can take it. None if it can't be used."""
     mime = (mime or "").split(";")[0].strip().lower()
     try:
@@ -52,7 +52,7 @@ def prepare(data: bytes, mime: str, label: str = "") -> Picture | None:
         elif image.mode != "RGB":
             image = image.convert("RGB")
         out = io.BytesIO()
-        image.save(out, format="JPEG", quality=85)
+        image.save(out, format="JPEG", quality=quality)
         return Picture(out.getvalue(), "image/jpeg", label)
     except Exception:
         if mime in IMAGE_TYPES and len(data) <= RAW_LIMIT:
@@ -196,8 +196,8 @@ def capture(settings, which: str = "all", include_game: bool = False) -> tuple[l
         for entry in choose(entries, which)[:MAX_IMAGES]:
             shot = ImageGrab.grab(bbox=entry["box"], all_screens=True)
             out = io.BytesIO()
-            shot.convert("RGB").save(out, format="JPEG", quality=85)
-            picture = prepare(out.getvalue(), "image/jpeg", _screen_label(entry))
+            shot.convert("RGB").save(out, format="JPEG", quality=92)
+            picture = prepare(out.getvalue(), "image/jpeg", _screen_label(entry), quality=70)
             if picture is not None:
                 pictures.append(picture)
     except OSError as exc:
