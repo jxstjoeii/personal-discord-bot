@@ -13,6 +13,7 @@ from assistant.brain import claude_status, run_chat
 from assistant.channel_log import format_log, write_log
 from assistant.formatting import format_stored, split_discord
 from assistant.house import brief_report, calendar_report, direct_kind, weather_report
+from assistant import vision
 from assistant.tools import ToolContext, collect_tools
 
 log = logging.getLogger(__name__)
@@ -29,12 +30,14 @@ class Ask(Addon):
         *,
         source: str = "Discord",
         origin_channel_id: int | None = None,
+        images=None,
     ) -> str:
         return await self.reply_for_user(
             user.id,
             text,
             source=source,
             origin_channel_id=origin_channel_id,
+            images=images,
         )
 
     async def reply_for_user(
@@ -44,11 +47,12 @@ class Ask(Addon):
         *,
         source: str = "Discord",
         origin_channel_id: int | None = None,
+        images=None,
     ) -> str:
         cleaned = text.strip()[:4000]
         if not cleaned:
             return "Ask me something."
-        kind = direct_kind(cleaned)
+        kind = None if images else direct_kind(cleaned)
         if kind is not None:
             answer = await asyncio.to_thread(self._direct, user_id, kind)
         elif not claude_status():
@@ -62,7 +66,7 @@ class Ask(Addon):
             history = self.bot.db.recent_messages(user_id, limit=12)
             try:
                 answer = await asyncio.to_thread(
-                    run_chat, self.bot.settings, history, cleaned, tools, ctx
+                    run_chat, self.bot.settings, history, cleaned, tools, ctx, images
                 )
             except Exception:
                 log.exception("Question failed")
@@ -71,7 +75,8 @@ class Ask(Addon):
                     "Calendar, weather, reminders, and notes still work."
                 )
             else:
-                self.bot.db.add_message(user_id, "user", cleaned)
+                saved = f"[sent {len(images)} picture(s)] {cleaned}" if images else cleaned
+                self.bot.db.add_message(user_id, "user", saved)
                 self.bot.db.add_message(user_id, "assistant", answer[:4000])
         await write_log(
             self.bot,
@@ -138,6 +143,32 @@ class Ask(Addon):
             return None
         return found
 
+    async def _pictures(self, message: discord.Message):
+        """Pictures attached to a message, shrunk for Claude, plus a note about any left out."""
+        pictures = []
+        left_out = 0
+        for attachment in message.attachments:
+            kind = (attachment.content_type or "").split(";")[0].lower()
+            if not kind.startswith("image/"):
+                continue
+            if len(pictures) >= vision.MAX_IMAGES or attachment.size > 20_000_000:
+                left_out += 1
+                continue
+            try:
+                data = await attachment.read()
+            except discord.HTTPException:
+                left_out += 1
+                continue
+            picture = await asyncio.to_thread(vision.prepare, data, kind, attachment.filename)
+            if picture is None:
+                left_out += 1
+            else:
+                pictures.append(picture)
+        note = ""
+        if left_out:
+            note = f"{left_out} picture(s) couldn't be used. I can look at up to {vision.MAX_IMAGES} at a time."
+        return pictures, note
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
         if message.author.bot or message.author.id != self.bot.settings.owner_id:
@@ -153,8 +184,15 @@ class Ask(Addon):
             text = text.replace(f"<@{self.bot.user.id}>", "")
             text = text.replace(f"<@!{self.bot.user.id}>", "")
         text = text.strip()
-        if not text:
+        images, skipped = await self._pictures(message)
+        if not text and not images:
+            if skipped:
+                await message.reply(skipped, mention_author=False)
             return
+        if not text:
+            text = "(Joeii sent a picture without words. Say what you see and ask how you can help.)"
+        if skipped:
+            text += f"\n({skipped})"
         if replied is not None:
             quoted = replied.content or (replied.embeds[0].title if replied.embeds else "") or ""
             text = f'(Replying to Patricia\'s message: "{quoted[:600]}")\n{text}'
@@ -165,6 +203,7 @@ class Ask(Addon):
                 text,
                 source=source,
                 origin_channel_id=message.channel.id,
+                images=images,
             )
         for part in split_discord(answer):
             await message.reply(part, mention_author=False)

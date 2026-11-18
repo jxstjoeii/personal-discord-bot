@@ -3,6 +3,13 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 $taskName = "Patricia Bot"
 
+# Pick up any new packages an update added (for example Pillow for pictures).
+$python = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+if (Test-Path $python) {
+    Write-Host "Checking packages..."
+    & $python -m pip install --quiet --disable-pip-version-check -r (Join-Path $PSScriptRoot "requirements.txt")
+}
+
 $running = @(Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" |
     Where-Object { $_.CommandLine -match "bot\.py" })
 foreach ($process in $running) {

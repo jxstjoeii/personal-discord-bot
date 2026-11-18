@@ -3,3 +3,4 @@ claude-agent-sdk>=0.2
 python-dotenv==1.2.4
 dateparser==1.4.3
 tzdata==2026.6
+pillow>=11

@@ -46,6 +46,12 @@ At 8:00 AM Patricia DMs you a short good morning: the weather, whether it's a mo
 
 When you tell Patricia something lasting about yourself, like your main heroes, your classes, or how you like reminders, she saves it to `data/about-joeii.md` and uses it in every chat. The `data` folder is in `.gitignore`, so this file never goes to GitHub. It stays on your PC, and it's sent to Claude only as part of your chats. `/aboutme` shows what she knows. Ask her to forget something, or edit the file by hand: one fact per line, starting with `- `.
 
+## Eyes
+
+Send Patricia a picture in a DM (or with an @mention in a server), with or without a question: a screenshot of an error, a photo of homework, two outfits to pick from. She sees up to 4 pictures at a time. Big photos are shrunk first with Pillow, which `run.ps1` installs.
+
+Ask "look at my screen" (or "check my Discord screen") and she takes a screenshot, looks, and answers. It runs hidden, so nothing pops up, and the screenshot is deleted right after. She never looks on her own, and scheduled jobs can't use it. While a game in `QUIET_GAMES` is running, the game screen is left out unless you ask her to include it. The screenshot is sent to Claude with that one message, like any picture you send.
+
 ## Gaming
 
 Patricia checks once a minute whether a game in `QUIET_GAMES` (Overwatch) is running. When you close it after at least 10 minutes, she DMs a wrap-up: how long you played, from when to when, and your total this week. If it's past bedtime, she nudges you toward bed.

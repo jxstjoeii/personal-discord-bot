@@ -16,7 +16,7 @@ from assistant.tools import AssistantTool, ToolContext, invoke_tool
 MIN_JOB_MINUTES = 10
 MAX_FAILURES = 3
 PAGE_LIMIT = 12000
-JOB_ONLY_TOOLS = {"create_job"}
+JOB_ONLY_TOOLS = {"create_job", "look_at_screen"}  # Left out of scheduled runs.
 
 FINISH_TOOL = {
     "type": "object",

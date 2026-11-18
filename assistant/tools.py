@@ -4,7 +4,7 @@ import inspect
 import json
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from assistant.config import Settings
 from assistant.db import Database
@@ -18,6 +18,17 @@ class ToolContext:
     settings: Settings
     db: Database
     channel_id: int | None = None
+
+
+@dataclass
+class ToolResult:
+    """A tool answer that also carries pictures, such as screenshots."""
+
+    text: str
+    images: list = field(default_factory=list)  # assistant.vision.Picture items
+
+    def __str__(self) -> str:
+        return self.text
 
 
 @dataclass
@@ -71,8 +82,11 @@ def invoke_tool(
             for key, value in parsed.items()
             if key in signature.parameters and key != "ctx"
         }
-        result = str(chosen.handler(ctx, **accepted))
+        result = chosen.handler(ctx, **accepted)
     except Exception as exc:
         log.exception("Tool %s failed", name)
         return json.dumps({"error": str(exc)})
-    return result[:4000]
+    if isinstance(result, ToolResult):
+        result.text = result.text[:4000]
+        return result
+    return str(result)[:4000]
