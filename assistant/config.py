@@ -43,6 +43,18 @@ class Settings:
     meds_name: str = ""
     morning_enabled: bool = True
     morning_time: time = time(8, 0)
+    voice_messages: bool = True
+    wake_word: bool = True
+    wake_during_games: bool = False
+    voice_replies: bool = True
+    voice_dm: bool = True
+    whisper_model: str = "small.en"
+    wake_model: str = "tiny.en"
+    whisper_device: str = "cpu"
+    mic_device: str = ""
+    voice_name: str = "af_heart"
+    kokoro_python: str = ""
+    kokoro_models: str = ""
     pc_timeout: int = 120
     quiet_games: tuple[str, ...] = ("Overwatch",)
 
@@ -166,6 +178,22 @@ def load_settings() -> Settings:
         morning_time = parse_clock(os.getenv("MORNING_TIME", "8:00").strip() or "8:00")
     except ValueError as exc:
         raise ConfigError("MORNING_TIME has to be a time like 8:00 or 7:30am.") from exc
+    def on_off(name: str, default: str) -> bool:
+        raw = os.getenv(name, default).strip().lower() or default
+        if raw not in ("on", "off"):
+            raise ConfigError(f"{name} has to be on or off.")
+        return raw == "on"
+
+    voice_flags = {
+        "voice_messages": on_off("VOICE_MESSAGES", "on"),
+        "wake_word": on_off("WAKE_WORD", "on"),
+        "wake_during_games": on_off("WAKE_DURING_GAMES", "off"),
+        "voice_replies": on_off("VOICE_REPLIES", "on"),
+        "voice_dm": on_off("VOICE_DM", "on"),
+    }
+    whisper_device = os.getenv("WHISPER_DEVICE", "cpu").strip().lower() or "cpu"
+    if whisper_device not in ("cpu", "cuda"):
+        raise ConfigError("WHISPER_DEVICE has to be cpu or cuda.")
     return Settings(
         discord_token=token,
         owner_id=owner_id,
@@ -192,6 +220,14 @@ def load_settings() -> Settings:
         meds_name=os.getenv("MEDS_NAME", "").strip(),
         morning_enabled=morning_raw == "on",
         morning_time=morning_time,
+        **voice_flags,
+        whisper_model=os.getenv("WHISPER_MODEL", "").strip() or "small.en",
+        wake_model=os.getenv("WAKE_MODEL", "").strip() or "tiny.en",
+        whisper_device=whisper_device,
+        mic_device=os.getenv("MIC_DEVICE", "").strip(),
+        voice_name=os.getenv("VOICE_NAME", "").strip() or "af_heart",
+        kokoro_python=os.getenv("KOKORO_PYTHON", "").strip(),
+        kokoro_models=os.getenv("KOKORO_MODELS", "").strip(),
         pc_timeout=pc_timeout,
         quiet_games=quiet_games,
     )

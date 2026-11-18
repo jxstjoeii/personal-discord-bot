@@ -75,6 +75,10 @@ class Database:
                 last_seen_at TEXT NOT NULL,
                 ended_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS prefs (
+                name TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS daily_marks (
                 name TEXT NOT NULL,
                 day TEXT NOT NULL,
@@ -645,3 +649,15 @@ class Database:
             "SELECT * FROM game_sessions WHERE COALESCE(ended_at, last_seen_at) >= ? ORDER BY started_at ASC",
             (_iso(since),),
         )
+
+    def get_pref(self, name: str, default: str = "") -> str:
+        rows = self._rows("SELECT value FROM prefs WHERE name = ?", (name,))
+        return rows[0]["value"] if rows else default
+
+    def set_pref(self, name: str, value: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO prefs (name, value) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value",
+                (name, value),
+            )
+            self._conn.commit()

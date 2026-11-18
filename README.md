@@ -52,6 +52,14 @@ Send Patricia a picture in a DM (or with an @mention in a server), with or witho
 
 Ask "look at my screen" (or "check my Discord screen") and she takes a screenshot, looks, and answers. She takes it inside her own program with Pillow, so nothing pops up, and it's never saved to disk. She never looks on her own, and scheduled jobs can't use it. While a game in `QUIET_GAMES` is running, the game screen is left out unless you ask her to include it. The screenshot is sent to Claude with that one message, like any picture you send.
 
+## Ears
+
+**Voice messages.** Hold the mic button in your DM with Patricia, talk, and let go. She turns it into text on this PC with Whisper and answers like a typed message, showing "🎙️ I heard: …" so you can see what she understood. Works from your phone too. The first one after a restart can take a little longer while Whisper loads. The model downloads once (about 500 MB for `small.en`) into `data/whisper`.
+
+**Hey Patricia.** Off until you switch it on with `/listen on`. Then say "Hey Patricia, what's the weather?" (or "Hey Patricia", wait for the chime, then ask). She answers out loud with the Heart voice from the morning briefing, and DMs you what you said and her answer. Turn it off with `/listen off`, by telling her in chat, or by saying "Hey Patricia, stop listening". `/listen status` says whether she's listening. While she is, her Discord status ends with 👂 and Windows shows its microphone icon by the clock. She ignores the microphone while Overwatch is running (`WAKE_DURING_GAMES=off`).
+
+Privacy: the microphone is only open while listening is on. Short bits of sound are checked on this PC for "hey Patricia" and thrown away if it isn't there. Nothing is saved to disk. Only the words of your request go to Claude.
+
 ## Gaming
 
 Patricia checks once a minute whether a game in `QUIET_GAMES` (Overwatch) is running. When you close it after at least 10 minutes, she DMs a wrap-up: how long you played, from when to when, and your total this week. If it's past bedtime, she nudges you toward bed.

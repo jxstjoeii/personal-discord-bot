@@ -23,6 +23,7 @@ BUILTIN = (
     "assistant.addons.gaming",
     "assistant.addons.health",
     "assistant.addons.eyes",
+    "assistant.addons.voice",
     "assistant.addons.status",
     "assistant.addons.guide",
 )

@@ -13,7 +13,7 @@ from assistant.brain import claude_status, run_chat
 from assistant.channel_log import format_log, write_log
 from assistant.formatting import format_stored, split_discord
 from assistant.house import brief_report, calendar_report, direct_kind, weather_report
-from assistant import vision
+from assistant import hearing, vision
 from assistant.tools import ToolContext, collect_tools
 
 log = logging.getLogger(__name__)
@@ -143,6 +143,33 @@ class Ask(Addon):
             return None
         return found
 
+    async def _voice(self, message: discord.Message) -> str:
+        """Transcribes a voice message (or audio file) on this PC. Blank if there isn't one."""
+        settings = self.bot.settings
+        if not settings.voice_messages:
+            return ""
+        for attachment in message.attachments:
+            kind = (attachment.content_type or "").split(";")[0].lower()
+            if not kind.startswith("audio/") or attachment.size > 25_000_000:
+                continue
+            try:
+                data = await attachment.read()
+                async with message.channel.typing():
+                    text = await asyncio.to_thread(
+                        hearing.transcribe, data, settings.whisper_model, settings.whisper_device
+                    )
+            except hearing.HearingUnavailable as exc:
+                await message.reply(f"I can't hear voice messages yet: {exc}", mention_author=False)
+                return ""
+            except Exception:
+                log.exception("Transcribing a voice message failed")
+                await message.reply("I couldn't make out that voice message. Could you try again?", mention_author=False)
+                return ""
+            if not text:
+                await message.reply("I couldn't hear any words in that voice message.", mention_author=False)
+            return text
+        return ""
+
     async def _pictures(self, message: discord.Message):
         """Pictures attached to a message, shrunk for Claude, plus a note about any left out."""
         pictures = []
@@ -184,6 +211,9 @@ class Ask(Addon):
             text = text.replace(f"<@{self.bot.user.id}>", "")
             text = text.replace(f"<@!{self.bot.user.id}>", "")
         text = text.strip()
+        heard = await self._voice(message)
+        if heard:
+            text = f"(voice message) {heard}" + (f"\n{text}" if text else "")
         images, skipped = await self._pictures(message)
         if not text and not images:
             if skipped:
@@ -205,6 +235,8 @@ class Ask(Addon):
                 origin_channel_id=message.channel.id,
                 images=images,
             )
+        if heard:
+            answer = f"-# 🎙️ I heard: “{heard[:300]}”\n{answer}"
         for part in split_discord(answer):
             await message.reply(part, mention_author=False)
 

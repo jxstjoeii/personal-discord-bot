@@ -56,16 +56,20 @@ class Status(Addon):
         except Exception:
             log.exception("Working out the status failed")
             return
+        voice = self.bot.get_cog("Voice")
+        ear = bool(voice and voice.listening)
         stale = time.monotonic() - self._changed_at >= ROTATE_SECONDS
-        if mood == self._mood and not stale:
+        if mood == self._mood and ear == getattr(self, "_ear", False) and not stale:
             return
         line = next_line(mood, self._line if mood == self._mood else None)
+        shown = f"{line} · 👂" if ear else line
         try:
-            await self.bot.change_presence(activity=discord.CustomActivity(name=line))
+            await self.bot.change_presence(activity=discord.CustomActivity(name=shown))
         except discord.HTTPException:
             log.warning("Could not change the status")
             return
         self._mood, self._line, self._changed_at = mood, line, time.monotonic()
+        self._ear = ear
 
     @updater.before_loop
     async def before_updater(self) -> None:

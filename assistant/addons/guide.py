@@ -27,6 +27,7 @@ HELP = "\n".join(
         "/weather — the weather at home",
         "/jobs list and /jobs cancel — scheduled jobs. Ask in chat to make one, like: check this page every hour",
         "/morning — the morning hello right now. /aboutme — what I remember about you",
+        "/listen on, off, or status — Hey Patricia on the PC microphone. Voice messages in DMs always work",
         "/onemore and /gaming — one-more-game mode and your play time. /pchealth — PC check-up",
         "/roll, /flip, /8ball, /hero — dice, coin, magic 8-ball, random Overwatch hero",
         "/assignments add, list, and done — track due dates. Or just tell me: my essay is due friday",
