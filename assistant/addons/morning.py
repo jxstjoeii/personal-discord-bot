@@ -12,6 +12,7 @@ from assistant import memory
 from assistant.addons.base import Addon
 from assistant.formatting import format_stored
 from assistant.house import calendar_report, load_briefing, weather_report
+from assistant.life_core import birthday_line, upcoming_birthdays
 from assistant.morning_core import hero_of_the_day, riding_rules, write_hello
 
 log = logging.getLogger(__name__)
@@ -68,6 +69,9 @@ class Morning(Addon):
             "riding": riding_rules(config),
             "reminders": "\n".join(reminders),
             "due": "\n".join(due),
+            "birthdays": "\n".join(
+                birthday_line(r, now.date()) for r in upcoming_birthdays(self.bot.db.list_birthdays(), now.date(), 3)
+            ),
             "hero": hero,
             "role": role,
         }

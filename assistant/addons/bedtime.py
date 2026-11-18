@@ -89,6 +89,9 @@ class Bedtime(Addon):
             return False
         self.bot.db.finish_bedtime(night)
         log.info("Bedtime finished for %s (%s)", night, how)
+        recap = self.bot.get_cog("Recap")
+        if recap is not None:
+            recap.nightly_soon()
         return True
 
     # ------------------------------------------------------------ tools --

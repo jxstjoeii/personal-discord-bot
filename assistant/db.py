@@ -75,6 +75,20 @@ class Database:
                 last_seen_at TEXT NOT NULL,
                 ended_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS moods (
+                day TEXT PRIMARY KEY,
+                score INTEGER NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS birthdays (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                month INTEGER NOT NULL,
+                day INTEGER NOT NULL,
+                year INTEGER,
+                note TEXT NOT NULL DEFAULT ''
+            );
             CREATE TABLE IF NOT EXISTS prefs (
                 name TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -661,3 +675,58 @@ class Database:
                 (name, value),
             )
             self._conn.commit()
+
+    def get_mood(self, day: str) -> dict | None:
+        rows = self._rows("SELECT * FROM moods WHERE day = ?", (day,))
+        return rows[0] if rows else None
+
+    def save_mood(self, day: str, score: int, note: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO moods (day, score, note, at) VALUES (?, ?, ?, ?)
+                ON CONFLICT(day) DO UPDATE SET score = excluded.score, note = excluded.note, at = excluded.at
+                """,
+                (day, score, note, _iso(datetime.now(timezone.utc))),
+            )
+            self._conn.commit()
+
+    def moods_since(self, day: str) -> list[dict]:
+        return self._rows("SELECT * FROM moods WHERE day >= ? ORDER BY day ASC", (day,))
+
+    def add_birthday(self, name: str, month: int, day: int, year: int | None, note: str) -> dict:
+        with self._lock:
+            existing = self._conn.execute("SELECT id FROM birthdays WHERE lower(name) = lower(?)", (name,)).fetchone()
+            if existing:
+                self._conn.execute(
+                    "UPDATE birthdays SET month = ?, day = ?, year = ?, note = ? WHERE id = ?",
+                    (month, day, year, note, existing[0]),
+                )
+                row_id = existing[0]
+            else:
+                row_id = self._conn.execute(
+                    "INSERT INTO birthdays (name, month, day, year, note) VALUES (?, ?, ?, ?, ?)",
+                    (name, month, day, year, note),
+                ).lastrowid
+            self._conn.commit()
+        return self._rows("SELECT * FROM birthdays WHERE id = ?", (row_id,))[0]
+
+    def list_birthdays(self) -> list[dict]:
+        return self._rows("SELECT * FROM birthdays ORDER BY month, day")
+
+    def remove_birthday(self, name: str) -> str:
+        rows = self._rows("SELECT * FROM birthdays WHERE lower(name) = lower(?)", (name,))
+        if not rows:
+            rows = self._rows("SELECT * FROM birthdays WHERE lower(name) LIKE lower(?)", (f"%{name}%",))
+        if len(rows) != 1:
+            return ""
+        with self._lock:
+            self._conn.execute("DELETE FROM birthdays WHERE id = ?", (rows[0]["id"],))
+            self._conn.commit()
+        return rows[0]["name"]
+
+    def assignments_done_since(self, since: datetime) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM assignments WHERE done_at IS NOT NULL AND done_at >= ? ORDER BY done_at ASC",
+            (_iso(since),),
+        )

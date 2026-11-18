@@ -52,6 +52,18 @@ Send Patricia a picture in a DM (or with an @mention in a server), with or witho
 
 Ask "look at my screen" (or "check my Discord screen") and she takes a screenshot, looks, and answers. She takes it inside her own program with Pillow, so nothing pops up, and it's never saved to disk. She never looks on her own, and scheduled jobs can't use it. While a game in `QUIET_GAMES` is running, the game screen is left out unless you ask her to include it. The screenshot is sent to Claude with that one message, like any picture you send.
 
+## Instant PC controls
+
+Say or type "volume down", "volume up 20", "set volume to 30", "mute", "pause", "skip song", "previous song", "lock my PC", or "turn off my screens". Short commands like these happen right away, with no Yes/No step and no wait for Claude. They press the same media keys your keyboard has. Longer requests that mention these still work; Claude just uses the same controls.
+
+## Mood, birthdays, and recaps
+
+**Mood.** At 7:30 PM Patricia asks how your day was, with buttons from 😞 1 to 😄 5. Reply afterwards if you want to tell her more, and she saves it with the day. If you have a few hard days in a row, she checks in gently. `/mood` logs it any time.
+
+**Birthdays.** "Syl's birthday is March 3" (add the year if you know it). She reminds you 3 days before and on the day at 9 AM, and they show up in the morning hello and recaps. `/birthdays add`, `list`, and `remove` work too.
+
+**Nightly recap.** When you tell her you're going to bed (or tap the 😴 button), she sends a short recap: what you got done, meds, play time, mood, and what's coming tomorrow. If you haven't said good night by 11 PM, it comes anyway. **Weekly recap** on Sundays at 7 PM: wins, meds consistency, play time, how the week felt, and what's coming next week. `/recap` shows either one any time.
+
 ## Ears
 
 **Voice messages.** Hold the mic button in your DM with Patricia, talk, and let go. She turns it into text on this PC with Whisper and answers like a typed message, showing "🎙️ I heard: …" so you can see what she understood. Works from your phone too. The first one after a restart can take a little longer while Whisper loads. The model downloads once (about 500 MB for `small.en`) into `data/whisper`.

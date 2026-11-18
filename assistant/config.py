@@ -55,6 +55,9 @@ class Settings:
     voice_name: str = "af_heart"
     kokoro_python: str = ""
     kokoro_models: str = ""
+    mood_enabled: bool = True
+    mood_time: time = time(19, 30)
+    recap_enabled: bool = True
     pc_timeout: int = 120
     quiet_games: tuple[str, ...] = ("Overwatch",)
 
@@ -191,6 +194,10 @@ def load_settings() -> Settings:
         "voice_replies": on_off("VOICE_REPLIES", "on"),
         "voice_dm": on_off("VOICE_DM", "on"),
     }
+    try:
+        mood_time = parse_clock(os.getenv("MOOD_TIME", "19:30").strip() or "19:30")
+    except ValueError as exc:
+        raise ConfigError("MOOD_TIME has to be a time like 19:30 or 7:30pm.") from exc
     whisper_device = os.getenv("WHISPER_DEVICE", "cpu").strip().lower() or "cpu"
     if whisper_device not in ("cpu", "cuda"):
         raise ConfigError("WHISPER_DEVICE has to be cpu or cuda.")
@@ -228,6 +235,9 @@ def load_settings() -> Settings:
         voice_name=os.getenv("VOICE_NAME", "").strip() or "af_heart",
         kokoro_python=os.getenv("KOKORO_PYTHON", "").strip(),
         kokoro_models=os.getenv("KOKORO_MODELS", "").strip(),
+        mood_enabled=on_off("MOOD", "on"),
+        mood_time=mood_time,
+        recap_enabled=on_off("RECAP", "on"),
         pc_timeout=pc_timeout,
         quiet_games=quiet_games,
     )

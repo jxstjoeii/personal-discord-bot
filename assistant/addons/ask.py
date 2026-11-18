@@ -13,7 +13,7 @@ from assistant.brain import claude_status, run_chat
 from assistant.channel_log import format_log, write_log
 from assistant.formatting import format_stored, split_discord
 from assistant.house import brief_report, calendar_report, direct_kind, weather_report
-from assistant import hearing, vision
+from assistant import hearing, pc_controls, vision
 from assistant.tools import ToolContext, collect_tools
 
 log = logging.getLogger(__name__)
@@ -53,7 +53,11 @@ class Ask(Addon):
         if not cleaned:
             return "Ask me something."
         kind = None if images else direct_kind(cleaned)
-        if kind is not None:
+        instant = None if images else pc_controls.quick(cleaned)
+        if instant is not None:
+            # Simple PC controls happen right away, without waiting for Claude.
+            answer = await asyncio.to_thread(pc_controls.run, *instant)
+        elif kind is not None:
             answer = await asyncio.to_thread(self._direct, user_id, kind)
         elif not claude_status():
             answer = (

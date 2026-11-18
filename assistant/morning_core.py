@@ -60,6 +60,8 @@ def fallback(name: str, facts: dict) -> str:
         lines += ["", "📚 **Due soon**", facts["due"]]
     if facts["reminders"]:
         lines += ["", "⏰ **Today's reminders**", facts["reminders"]]
+    if facts.get("birthdays"):
+        lines += ["", "🎂 **Birthdays**", facts["birthdays"]]
     lines += ["", f"🎮 Hero of the day: **{facts['hero']}** ({facts['role']})."]
     return "\n".join(lines)
 
@@ -73,7 +75,7 @@ def write_hello(settings, facts: dict, about: str, now: datetime) -> str:
             "for Discord. Keep it under 900 characters and easy to skim, using a few emoji and "
             "short bold labels. Include, in this order: a one-line greeting for the day; the "
             "weather in one or two lines; a clear motorcycle verdict (yes, later today, or no, "
-            "with the reason) using the riding rules; what's due soon and today's reminders, only "
+            "with the reason) using the riding rules; what's due soon, today's reminders, and birthdays, only "
             "if there are any; and one fun closer: the hero of the day with a tiny, doable "
             "challenge, plus either a short clean joke or an Overwatch fun fact you are sure is "
             "true. Use what you know about him lightly. Do not invent calendar events, reminders, "
@@ -86,6 +88,7 @@ def write_hello(settings, facts: dict, about: str, now: datetime) -> str:
             f"Calendar:\n{facts['calendar']}\n\n"
             f"Due soon:\n{facts['due'] or 'Nothing due in the next 3 days.'}\n\n"
             f"Reminders today:\n{facts['reminders'] or 'None.'}\n\n"
+            f"Birthdays in the next 3 days:\n{facts.get('birthdays') or 'None.'}\n\n"
             f"Hero of the day: {facts['hero']} ({facts['role']})\n\n"
             f"What you know about Joeii:\n{about}"
         )
