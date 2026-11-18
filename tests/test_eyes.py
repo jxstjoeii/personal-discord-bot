@@ -58,6 +58,41 @@ class ChooseTests(unittest.TestCase):
             self.assertIn("only works on the Windows PC", note)
 
 
+class CaptureTests(unittest.TestCase):
+    def test_game_screen_left_out(self) -> None:
+        try:
+            from PIL import Image
+        except ImportError:
+            self.skipTest("Pillow not installed")
+        from unittest import mock
+
+        monitors = [
+            {"handle": 11, "box": (0, 0, 2560, 1440), "primary": True},
+            {"handle": 22, "box": (2560, 0, 4480, 1080), "primary": False},
+        ]
+        grabbed = []
+
+        def grab(bbox=None, all_screens=False):
+            grabbed.append(bbox)
+            return Image.new("RGB", (bbox[2] - bbox[0], bbox[3] - bbox[1]), (10, 10, 10))
+
+        game_or_discord = {("Overwatch",): 11, ("Discord", "DiscordPTB", "DiscordCanary"): 22}
+        with tempfile.TemporaryDirectory() as folder, \
+                mock.patch.object(vision.pc, "is_windows", return_value=True), \
+                mock.patch.object(vision, "_monitors", return_value=monitors), \
+                mock.patch.object(vision, "_monitor_of", side_effect=lambda names: game_or_discord.get(tuple(names))), \
+                mock.patch("PIL.ImageGrab.grab", grab):
+            settings = make_settings(Path(folder))
+            pictures, note = vision.capture(settings, "all")
+            self.assertEqual(grabbed, [(2560, 0, 4480, 1080)])
+            self.assertEqual(pictures[0].label, "Screen 2, has Discord")
+            self.assertIn("game screen was left out", note)
+            grabbed.clear()
+            pictures, note = vision.capture(settings, "all", include_game=True)
+            self.assertEqual(len(grabbed), 2)
+            self.assertEqual(max(Image.open(io.BytesIO(pictures[0].data)).size), vision.MAX_SIDE)
+
+
 class ToolResultTests(unittest.TestCase):
     def test_pictures_pass_through(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

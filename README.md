@@ -50,7 +50,7 @@ When you tell Patricia something lasting about yourself, like your main heroes, 
 
 Send Patricia a picture in a DM (or with an @mention in a server), with or without a question: a screenshot of an error, a photo of homework, two outfits to pick from. She sees up to 4 pictures at a time. Big photos are shrunk first with Pillow, which `run.ps1` installs.
 
-Ask "look at my screen" (or "check my Discord screen") and she takes a screenshot, looks, and answers. It runs hidden, so nothing pops up, and the screenshot is deleted right after. She never looks on her own, and scheduled jobs can't use it. While a game in `QUIET_GAMES` is running, the game screen is left out unless you ask her to include it. The screenshot is sent to Claude with that one message, like any picture you send.
+Ask "look at my screen" (or "check my Discord screen") and she takes a screenshot, looks, and answers. She takes it inside her own program with Pillow, so nothing pops up, and it's never saved to disk. She never looks on her own, and scheduled jobs can't use it. While a game in `QUIET_GAMES` is running, the game screen is left out unless you ask her to include it. The screenshot is sent to Claude with that one message, like any picture you send.
 
 ## Gaming
 
