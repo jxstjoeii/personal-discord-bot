@@ -121,6 +121,17 @@ class Database:
                 messages TEXT NOT NULL DEFAULT '[]',
                 done_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS alarms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                label TEXT NOT NULL DEFAULT '',
+                due_at TEXT NOT NULL,
+                state TEXT NOT NULL DEFAULT 'waiting',
+                rings INTEGER NOT NULL DEFAULT 0,
+                next_ring_at TEXT,
+                created_at TEXT NOT NULL,
+                ended_at TEXT
+            );
             CREATE TABLE IF NOT EXISTS jobs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -730,3 +741,66 @@ class Database:
             "SELECT * FROM assignments WHERE done_at IS NOT NULL AND done_at >= ? ORDER BY done_at ASC",
             (_iso(since),),
         )
+
+    # ------------------------------------------------------------ alarms --
+    # state: waiting (not yet due), ringing (calling Joeii), done (stopped,
+    # cancelled, or gave up).
+
+    def add_alarm(self, user_id: int, label: str, due_at: datetime) -> dict:
+        with self._lock:
+            cursor = self._conn.execute(
+                "INSERT INTO alarms (user_id, label, due_at, created_at) VALUES (?, ?, ?, ?)",
+                (user_id, label.strip(), _iso(due_at), _iso(datetime.now(timezone.utc))),
+            )
+            self._conn.commit()
+            alarm_id = cursor.lastrowid
+        return self.get_alarm(alarm_id)
+
+    def get_alarm(self, alarm_id: int) -> dict | None:
+        rows = self._rows("SELECT * FROM alarms WHERE id = ?", (alarm_id,))
+        return rows[0] if rows else None
+
+    def open_alarms(self, user_id: int) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM alarms WHERE user_id = ? AND state != 'done' ORDER BY due_at ASC, id ASC",
+            (user_id,),
+        )
+
+    def alarms_to_start(self, now: datetime) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM alarms WHERE state = 'waiting' AND due_at <= ? ORDER BY due_at ASC, id ASC",
+            (_iso(now),),
+        )
+
+    def ringing_alarms(self) -> list[dict]:
+        return self._rows("SELECT * FROM alarms WHERE state = 'ringing' ORDER BY id ASC")
+
+    def ring_alarm(self, alarm_id: int, rings: int, next_ring_at: datetime) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE alarms SET state = 'ringing', rings = ?, next_ring_at = ? WHERE id = ?",
+                (rings, _iso(next_ring_at), alarm_id),
+            )
+            self._conn.commit()
+
+    def snooze_alarm(self, alarm_id: int, due_at: datetime) -> dict | None:
+        with self._lock:
+            cursor = self._conn.execute(
+                "UPDATE alarms SET state = 'waiting', rings = 0, next_ring_at = NULL, due_at = ? "
+                "WHERE id = ? AND state != 'done'",
+                (_iso(due_at), alarm_id),
+            )
+            self._conn.commit()
+            changed = cursor.rowcount
+        return self.get_alarm(alarm_id) if changed else None
+
+    def end_alarm(self, alarm_id: int) -> dict | None:
+        """Stop or cancel one alarm. Returns it, or None if it was already over."""
+        with self._lock:
+            cursor = self._conn.execute(
+                "UPDATE alarms SET state = 'done', ended_at = ? WHERE id = ? AND state != 'done'",
+                (_iso(datetime.now(timezone.utc)), alarm_id),
+            )
+            self._conn.commit()
+            changed = cursor.rowcount
+        return self.get_alarm(alarm_id) if changed else None

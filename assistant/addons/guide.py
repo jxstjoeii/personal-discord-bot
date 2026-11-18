@@ -15,6 +15,8 @@ HELP = "\n".join(
         "/remind add — set a reminder, such as when: in 20 minutes",
         "/remind list — upcoming reminders",
         "/remind cancel — cancel one by its id",
+        "/alarm set — an alarm that keeps DMing you and beeps on the PC until you tap Stop",
+        "/alarm list, /alarm stop, /alarm cancel — see, stop, or cancel alarms",
         "/note add — save a note",
         "/note show — open a note by id",
         "/note edit — change a note",
