@@ -38,6 +38,15 @@ She sets reminders from normal sentences, including repeating ones:
 
 Repeating reminders tell you when the next one is. Reply "stop" or "done" to one and she cancels it. `/remind list` shows them all, and `/remind add` has `every` and `until` options too.
 
+## Alarms
+
+Discord doesn't let bots make real calls, so an alarm is the next best thing. Say "wake me up at 7am" or "set an alarm for 6:30 tomorrow", or use `/alarm set`. When it goes off, Patricia:
+
+1. DMs you "⏰ Alarm" with a **Stop** and a **Snooze 5 min** button, and
+2. beeps out of your PC speakers (in the background, no window opens),
+
+and keeps DMing every 30 seconds until you tap Stop, reply "stop" or "I'm up", or use `/alarm stop`. If you don't answer for 10 minutes, she stops and tells you. A time like "7am" that already passed today means tomorrow. Alarms ring even during class quiet hours, since you set them yourself. If your PC is muted, you'll only get the DMs. `/alarm list` and `/alarm cancel` show and remove alarms.
+
 ## Morning hello
 
 At 8:00 AM Patricia DMs you a short good morning: the weather, whether it's a motorcycle riding day (using the riding rules in the morning briefing's `motorcycle` settings), anything due in the next 3 days, today's reminders, and a fun closer: the Overwatch hero of the day with a small challenge, plus a joke or a fun fact. If the PC was off at 8, she sends it when she comes online, until noon. `/morning` shows it any time. Change the time with `MORNING_TIME`, or turn it off with `MORNING_HELLO=off`.
