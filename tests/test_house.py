@@ -188,3 +188,91 @@ class HouseReportTests(unittest.TestCase):
             text = calendar_report(PACIFIC, THURSDAY, "today", briefing=root, fetch_text=fetch)
         self.assertIn("The iCloud calendar link returned Not Found.", text)
         self.assertNotIn("secret", text)
+
+
+class WeatherBackupTests(unittest.TestCase):
+    def _place_fetch(self, url: str) -> str:
+        return json.dumps(
+            {"results": [{"name": "Puyallup", "admin1": "Washington", "admin2": "Pierce",
+                          "country_code": "US", "latitude": 47.19, "longitude": -122.29,
+                          "timezone": "America/Los_Angeles"}]}
+        )
+
+    def test_weather_gov_steps_in_when_open_meteo_is_down(self) -> None:
+        def fetch(url: str) -> str:
+            if "geocoding-api" in url:
+                return self._place_fetch(url)
+            if "api.open-meteo.com" in url:
+                raise FeedError("api.open-meteo.com", None, "timed out")
+            if "/points/" in url:
+                return json.dumps({"properties": {
+                    "forecast": "https://api.weather.gov/gridpoints/SEW/1,1/forecast",
+                    "forecastHourly": "https://api.weather.gov/gridpoints/SEW/1,1/forecast/hourly",
+                }})
+            if url.endswith("/hourly"):
+                hours = []
+                for hour, (temp, words, rain) in enumerate(
+                    [(51, "Mostly Cloudy", 10), (52, "Light Rain", 60), (50, "Rain", 80),
+                     (49, "Rain", 70), (47, "Cloudy", 30), (45, "Cloudy", 20)], start=15):
+                    hours.append({"startTime": f"2026-11-05T{hour:02d}:00:00-08:00", "temperature": temp,
+                                  "temperatureUnit": "F", "shortForecast": words,
+                                  "probabilityOfPrecipitation": {"value": rain}})
+                hours.append({"startTime": "2026-11-06T09:00:00-08:00", "temperature": 48,
+                              "temperatureUnit": "F", "shortForecast": "Sunny",
+                              "probabilityOfPrecipitation": {"value": 0}})
+                return json.dumps({"properties": {"periods": hours}})
+            if url.endswith("/forecast"):
+                return json.dumps({"properties": {"periods": [
+                    {"startTime": "2026-11-05T15:00:00-08:00", "isDaytime": True, "temperature": 56,
+                     "temperatureUnit": "F", "shortForecast": "Rain Likely"},
+                    {"startTime": "2026-11-06T06:00:00-08:00", "isDaytime": True, "temperature": 54,
+                     "temperatureUnit": "F", "shortForecast": "Sunny"},
+                ]}})
+            raise AssertionError(url)
+
+        text = weather_report(PACIFIC, THURSDAY, "both", briefing=Path("/nowhere"), fetch_text=fetch,
+                              location="Puyallup, Pierce County, Washington")
+        self.assertIn("Right now in Puyallup, Washington: 51 F and overcast.", text)
+        self.assertIn("Today: rainy, high 56 F, low 45 F. Rain chance 80%.", text)
+        self.assertIn("Friday: clear, high 54 F, low 48 F.", text)
+
+    def test_both_services_down_says_so(self) -> None:
+        def fetch(url: str) -> str:
+            if "geocoding-api" in url:
+                return self._place_fetch(url)
+            raise FeedError("x", None, "down")
+
+        text = weather_report(PACIFIC, THURSDAY, "today", briefing=Path("/nowhere"), fetch_text=fetch,
+                              location="Puyallup, WA")
+        self.assertIn("The weather service didn't answer just now.", text)
+
+    def test_fetch_retries_over_ipv4(self) -> None:
+        from unittest import mock
+
+        import assistant.house as house
+
+        class Reply:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, _limit):
+                return b"ok"
+
+        with mock.patch.object(house.urllib.request, "urlopen", side_effect=TimeoutError("timed out")), \
+                mock.patch.object(house._IPV4, "open", return_value=Reply()) as ipv4:
+            self.assertEqual(house._fetch_text("https://api.open-meteo.com/v1/forecast"), "ok")
+        ipv4.assert_called_once()
+
+        with mock.patch.object(house.urllib.request, "urlopen", side_effect=TimeoutError("timed out")), \
+                mock.patch.object(house._IPV4, "open", side_effect=OSError("no route")):
+            with self.assertRaises(FeedError) as caught:
+                house._fetch_text("https://api.open-meteo.com/v1/forecast")
+        self.assertIn("timed out", caught.exception.reason)
+        self.assertIn("no route", caught.exception.reason)
+
+
+if __name__ == "__main__":
+    unittest.main()

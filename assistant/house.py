@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import os
 import re
+import socket
 import urllib.error
 import urllib.request
 from datetime import date, datetime, timedelta
@@ -19,9 +21,10 @@ DEFAULT_BRIEFING = Path(r"C:\Users\joeii\OneDrive\Documents\morning-briefing")
 
 
 class FeedError(Exception):
-    def __init__(self, host: str, code: int | None) -> None:
+    def __init__(self, host: str, code: int | None, reason: str = "") -> None:
         self.host = host
         self.code = code
+        self.reason = reason
         super().__init__("calendar feed failed")
 _DIRECT = {
     "brief": "brief",
@@ -108,19 +111,141 @@ def weather_report(
             "then restart Patricia."
         )
     name, lat, lon, units, tz_name = place
+    payload, problem = _open_meteo(fetch, lat, lon, tz_name, units)
+    if payload is None:
+        backup = _nws_forecast(fetch, lat, lon, units)
+        if backup is not None:
+            payload = backup
+        else:
+            return problem
+    return _format_weather(payload, name, units, now, chosen_days(now, day), zone)
+
+
+def _open_meteo(fetch, lat: float, lon: float, tz_name: str, units: str) -> tuple[dict | None, str]:
+    """The forecast from Open-Meteo, or (None, what to tell Joeii)."""
     try:
         payload = json.loads(fetch(_weather_url(lat, lon, tz_name, units)))
     except FeedError as exc:
-        log.warning("Weather lookup failed: %s %s", exc.host, exc.code)
+        log.warning("Weather lookup failed: %s %s %s", exc.host, exc.code, exc.reason)
         code = f" (error {exc.code})" if exc.code else ""
-        return f"The weather service didn't answer just now{code}. Try again in a few minutes."
+        return None, f"The weather service didn't answer just now{code}. Try again in a few minutes."
     except Exception as exc:
-        log.warning("Weather lookup failed: %s", exc)
-        return "The weather service sent something I couldn't read. Try again in a few minutes."
+        log.warning("Weather lookup failed: %r", exc)
+        return None, "The weather service sent something I couldn't read. Try again in a few minutes."
     if not isinstance(payload, dict) or "daily" not in payload:
         log.warning("Weather lookup returned no forecast: %s", str(payload)[:200])
-        return "The weather service didn't send a forecast. Try again in a few minutes."
-    return _format_weather(payload, name, units, now, chosen_days(now, day), zone)
+        return None, "The weather service didn't send a forecast. Try again in a few minutes."
+    return payload, ""
+
+
+def _nws_forecast(fetch, lat: float, lon: float, units: str) -> dict | None:
+    """Backup: the US National Weather Service, shaped like an Open-Meteo answer."""
+    if not (18 <= lat <= 72 and -180 <= lon <= -64):
+        return None
+    try:
+        point = json.loads(fetch(f"https://api.weather.gov/points/{lat:.4f},{lon:.4f}"))
+        props = point.get("properties") or {}
+        hourly = json.loads(fetch(str(props["forecastHourly"])))
+        periods = (hourly.get("properties") or {}).get("periods") or []
+        try:
+            daily = json.loads(fetch(str(props["forecast"])))
+            day_periods = (daily.get("properties") or {}).get("periods") or []
+        except Exception:
+            day_periods = []
+    except Exception as exc:
+        log.warning("Backup weather (weather.gov) failed: %r", exc)
+        return None
+    if not periods:
+        log.warning("Backup weather (weather.gov) sent no hours")
+        return None
+
+    def temp(item: dict) -> float:
+        value = float(item.get("temperature"))
+        if str(item.get("temperatureUnit") or "F").upper() == "C":
+            value = value * 9 / 5 + 32
+        return (value - 32) * 5 / 9 if units == "celsius" else value
+
+    def rain(item: dict) -> float:
+        value = (item.get("probabilityOfPrecipitation") or {}).get("value")
+        return float(value or 0)
+
+    hours = {"time": [], "temperature_2m": [], "weather_code": [], "precipitation_probability": []}
+    days: dict[str, dict] = {}
+    for item in periods:
+        try:
+            start = datetime.fromisoformat(str(item["startTime"]))
+            value = temp(item)
+        except (KeyError, TypeError, ValueError):
+            continue
+        code = _nws_code(str(item.get("shortForecast") or ""))
+        stamp = start.replace(tzinfo=None, minute=0, second=0, microsecond=0)
+        hours["time"].append(stamp.isoformat(timespec="minutes"))
+        hours["temperature_2m"].append(value)
+        hours["weather_code"].append(code)
+        hours["precipitation_probability"].append(rain(item))
+        day = days.setdefault(stamp.date().isoformat(), {"temps": [], "codes": [], "rain": []})
+        if 7 <= stamp.hour <= 21:
+            day["codes"].append(code)
+        day["temps"].append(value)
+        day["rain"].append(rain(item))
+    for item in day_periods:
+        try:
+            key = str(item["startTime"])[:10]
+            value = temp(item)
+        except (KeyError, TypeError, ValueError):
+            continue
+        if key in days:
+            days[key]["temps"].append(value)
+            if item.get("isDaytime"):
+                days[key]["codes"].append(_nws_code(str(item.get("shortForecast") or "")))
+    daily_out = {
+        "time": [],
+        "weather_code": [],
+        "temperature_2m_max": [],
+        "temperature_2m_min": [],
+        "precipitation_probability_max": [],
+    }
+    for key in sorted(days)[:3]:
+        day = days[key]
+        daily_out["time"].append(key)
+        daily_out["weather_code"].append(max(day["codes"] or [0], key=_code_weight))
+        daily_out["temperature_2m_max"].append(max(day["temps"]))
+        daily_out["temperature_2m_min"].append(min(day["temps"]))
+        daily_out["precipitation_probability_max"].append(max(day["rain"] or [0]))
+    log.info("Weather came from the weather.gov backup")
+    return {"daily": daily_out, "hourly": hours}
+
+
+def _nws_code(text: str) -> int:
+    """weather.gov words -> the nearest Open-Meteo weather code."""
+    words = text.lower()
+    if "thunder" in words:
+        return 95
+    if "snow" in words or "sleet" in words or "flurr" in words:
+        return 73
+    if "shower" in words:
+        return 80
+    if "drizzle" in words:
+        return 53
+    if "rain" in words:
+        return 63
+    if "fog" in words:
+        return 45
+    if "mostly cloudy" in words or "overcast" in words or words.strip() == "cloudy":
+        return 3
+    if "partly" in words:
+        return 2
+    if "mostly sunny" in words or "mostly clear" in words:
+        return 1
+    if "sunny" in words or "clear" in words:
+        return 0
+    return 3
+
+
+def _code_weight(code: int) -> int:
+    """Which code says the most about a day: storms beat rain beat clouds."""
+    order = [95, 73, 63, 80, 53, 45, 3, 2, 1, 0]
+    return len(order) - order.index(code) if code in order else 0
 
 
 _STATES = {
@@ -244,7 +369,7 @@ def _load_calendar(root: Path, config: dict, fetch_text) -> tuple[object, list[s
         try:
             feeds.append(fetch_text(link))
         except FeedError as exc:
-            log.warning("Calendar feed failed: %s %s", exc.host, exc.code)
+            log.warning("Calendar feed failed: %s %s %s", exc.host, exc.code, exc.reason)
             failures.append(exc)
         except Exception:
             log.warning("Calendar feed failed")
@@ -440,11 +565,51 @@ def _clock(now: datetime) -> str:
 
 def _fetch_text(url: str) -> str:
     host = urlparse(url).hostname or "calendar"
-    request = urllib.request.Request(url, headers={"User-Agent": "Patricia/1.0"})
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Patricia/1.0 (personal Discord bot)", "Accept": "*/*"},
+    )
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            return response.read(2_000_000).decode("utf-8", "replace")
+        return _read(urllib.request.urlopen(request, timeout=10))
     except urllib.error.HTTPError as exc:
-        raise FeedError(host, exc.code) from None
-    except Exception:
-        raise FeedError(host, None) from None
+        raise FeedError(host, exc.code, str(exc.reason)) from None
+    except Exception as first:
+        # A broken IPv6 route makes Python wait and give up, while browsers quietly
+        # fall back to IPv4. Try once more over IPv4 only before calling it a failure.
+        log.info("Fetch from %s failed (%r), trying again over IPv4", host, first)
+        try:
+            return _read(_IPV4.open(request, timeout=15))
+        except urllib.error.HTTPError as exc:
+            raise FeedError(host, exc.code, str(exc.reason)) from None
+        except Exception as exc:
+            raise FeedError(host, None, f"{first!r}; IPv4: {exc!r}") from None
+
+
+def _read(response) -> str:
+    with response:
+        return response.read(2_000_000).decode("utf-8", "replace")
+
+
+class _IPv4HTTPSConnection(http.client.HTTPSConnection):
+    def connect(self) -> None:
+        if getattr(self, "_tunnel_host", None):
+            super().connect()
+            return
+        last: OSError | None = None
+        for *_, address in socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM):
+            try:
+                sock = socket.create_connection(address[:2], self.timeout, self.source_address)
+                break
+            except OSError as exc:
+                last = exc
+        else:
+            raise last or OSError(f"no IPv4 address for {self.host}")
+        self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+
+
+class _IPv4Handler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_IPv4HTTPSConnection, req, context=self._context)
+
+
+_IPV4 = urllib.request.build_opener(_IPv4Handler())
