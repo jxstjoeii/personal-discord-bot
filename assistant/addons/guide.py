@@ -17,6 +17,7 @@ HELP = "\n".join(
         "/remind cancel — cancel one by its id",
         "/alarm set — an alarm that keeps DMing you and beeps on the PC until you tap Stop",
         "/alarm list, /alarm stop, /alarm cancel — see, stop, or cancel alarms",
+        "/arrival set, list, test, remove — a message when your iPhone says you got to home, school, and so on. /arrival setup links your phone",
         "/note add — save a note",
         "/note show — open a note by id",
         "/note edit — change a note",

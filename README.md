@@ -47,6 +47,16 @@ Discord doesn't let bots make real calls, so an alarm is the next best thing. Sa
 
 and keeps DMing every 30 seconds until you tap Stop, reply "stop" or "I'm up", or use `/alarm stop`. If you don't answer for 10 minutes, she stops and tells you. A time like "7am" that already passed today means tomorrow. Alarms ring even during class quiet hours, since you set them yourself. If your PC is muted, you'll only get the DMs. `/alarm list` and `/alarm cancel` show and remove alarms.
 
+## Arrival messages
+
+Patricia can DM you when you get to (or leave) a place, like "🏍️ helmet on the hook" at home or "check your parking pass" at school. Your iPhone does the location part with a Shortcuts automation. When you arrive, it posts one short line like `arrive school` to a private channel in your server, and Patricia sends the message you picked. Your GPS location never leaves your phone. Patricia only learns the place name.
+
+1. Make a private text channel in your server, for example `#iphone`, and add Patricia to it. Run `/arrival setup` in it. Patricia replies with a link (a Discord webhook). If she isn't allowed to make one, she tells you how to copy one from the channel settings.
+2. Pick messages: `/arrival set place:school message:Park in lot B`, or tell her "when I get home, remind me to plug in my phone". Add `when:leave` for a message when you leave. `/arrival list` shows them, `/arrival test` tries one, `/arrival remove` deletes a place.
+3. On your iPhone, open Shortcuts, then Automation, then the plus button, then **Arrive**. Pick the place and choose **Run Immediately**. Add **Get Contents of URL** with the link from step 1, method **POST**, request body **JSON**, and one Text field named `content` with the value `arrive school`. Do one automation for each place.
+
+Patricia reacts to each ping in the channel: ✅ sent, 🤫 held for class quiet hours (she sends it when class ends, or drops it after 2 hours), 🔁 ignored because the same ping came in the last 20 minutes, ❔ she didn't understand it or doesn't know the place yet. It works anywhere your phone has signal, even when the PC is on another network, because the ping goes through Discord. The PC does need to be on.
+
 ## Morning hello
 
 At 8:00 AM Patricia DMs you a short good morning: the weather, whether it's a motorcycle riding day (using the riding rules in the morning briefing's `motorcycle` settings), anything due in the next 3 days, today's reminders, and a fun closer: the Overwatch hero of the day with a small challenge, plus a joke or a fun fact. If the PC was off at 8, she sends it when she comes online, until noon. `/morning` shows it any time. Change the time with `MORNING_TIME`, or turn it off with `MORNING_HELLO=off`.
