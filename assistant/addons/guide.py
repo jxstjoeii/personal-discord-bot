@@ -31,6 +31,7 @@ HELP = "\n".join(
         "/jobs list and /jobs cancel — scheduled jobs. Ask in chat to make one, like: check this page every hour",
         "/morning — the morning hello right now. /aboutme — what I remember about you",
         "/mood, /birthdays, /recap — log your day, save birthdays, see today or this week",
+        "/diary write, today, day, week, list, search, prompts, delete — your private diary. Or just tell me about your day",
         "Say or type: volume down, mute, pause, skip song, lock my PC — it happens instantly",
         "/listen on, off, or status — Hey Patricia on the PC microphone. Voice messages in DMs always work",
         "/onemore and /gaming — one-more-game mode and your play time. /pchealth — PC check-up",

@@ -81,6 +81,13 @@ class Database:
                 note TEXT NOT NULL DEFAULT '',
                 at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS diary (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                day TEXT NOT NULL,
+                text TEXT NOT NULL,
+                prompt TEXT NOT NULL DEFAULT '',
+                at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS birthdays (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -712,6 +719,41 @@ class Database:
 
     def moods_since(self, day: str) -> list[dict]:
         return self._rows("SELECT * FROM moods WHERE day >= ? ORDER BY day ASC", (day,))
+
+    def add_diary(self, day: str, text: str, prompt: str = "") -> dict:
+        with self._lock:
+            cursor = self._conn.execute(
+                "INSERT INTO diary (day, text, prompt, at) VALUES (?, ?, ?, ?)",
+                (day, text, prompt, _iso(datetime.now(timezone.utc))),
+            )
+            self._conn.commit()
+            return self._rows("SELECT * FROM diary WHERE id = ?", (cursor.lastrowid,))[0]
+
+    def diary_between(self, first: str, last: str) -> list[dict]:
+        return self._rows("SELECT * FROM diary WHERE day >= ? AND day <= ? ORDER BY day ASC, id ASC", (first, last))
+
+    def search_diary(self, words: str, limit: int = 20) -> list[dict]:
+        terms = [w for w in words.split() if w][:6]
+        if not terms:
+            return []
+        where = " AND ".join("lower(text || ' ' || prompt) LIKE ?" for _ in terms)
+        params = tuple(f"%{w.lower()}%" for w in terms)
+        rows = self._rows(f"SELECT * FROM diary WHERE {where} ORDER BY day DESC, id DESC LIMIT ?", params + (limit,))
+        return list(reversed(rows))
+
+    def diary_days(self, limit: int = 30) -> list[dict]:
+        return self._rows(
+            "SELECT day, COUNT(*) AS entries FROM diary GROUP BY day ORDER BY day DESC LIMIT ?", (limit,)
+        )
+
+    def delete_diary(self, entry_id: int) -> dict | None:
+        with self._lock:
+            rows = self._rows("SELECT * FROM diary WHERE id = ?", (entry_id,))
+            if not rows:
+                return None
+            self._conn.execute("DELETE FROM diary WHERE id = ?", (entry_id,))
+            self._conn.commit()
+            return rows[0]
 
     def add_birthday(self, name: str, month: int, day: int, year: int | None, note: str) -> dict:
         with self._lock:

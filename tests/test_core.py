@@ -239,23 +239,15 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_builtin_commands_register(self) -> None:
         names = sorted(command.name for command in self.bot.tree.get_commands())
+        diary = next(command for command in self.bot.tree.get_commands() if command.name == "diary")
         self.assertEqual(
-            names,
-            [
-                "addons",
-                "ask",
-                "brief",
-                "calendar",
-                "catalog",
-                "chat",
-                "clear_chat",
-                "help",
-                "note",
-                "reload_addons",
-                "remind",
-                "weather",
-            ],
+            sorted(item.name for item in diary.commands),
+            ["day", "delete", "list", "prompts", "search", "today", "week", "write"],
         )
+        # The core commands are always there; other addons add more, like /diary.
+        for name in ("addons", "ask", "brief", "calendar", "catalog", "chat", "clear_chat", "diary",
+                     "help", "note", "reload_addons", "remind", "weather"):
+            self.assertIn(name, names)
         remind = next(command for command in self.bot.tree.get_commands() if command.name == "remind")
         note = next(command for command in self.bot.tree.get_commands() if command.name == "note")
         self.assertEqual(sorted(item.name for item in remind.commands), ["add", "cancel", "list"])
