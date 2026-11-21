@@ -155,6 +155,14 @@ class Database:
                 status TEXT NOT NULL DEFAULT 'pending',
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS places (
+                key TEXT PRIMARY KEY,
+                label TEXT NOT NULL,
+                arrive_text TEXT NOT NULL DEFAULT '',
+                leave_text TEXT NOT NULL DEFAULT '',
+                last_arrive_at TEXT,
+                last_leave_at TEXT
+            );
             CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(sent, due_at);
             CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id, updated_at);
             CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, id);
@@ -804,3 +812,41 @@ class Database:
             self._conn.commit()
             changed = cursor.rowcount
         return self.get_alarm(alarm_id) if changed else None
+
+    # -------------------------------------------------------- places --
+
+    def get_place(self, key: str) -> dict | None:
+        rows = self._rows("SELECT * FROM places WHERE key = ?", (key,))
+        return rows[0] if rows else None
+
+    def list_places(self) -> list[dict]:
+        return self._rows("SELECT * FROM places ORDER BY label COLLATE NOCASE")
+
+    def save_place_text(self, key: str, label: str, kind: str, text: str) -> dict:
+        """Set the arrive or leave message for a place, adding the place if it is new."""
+        if kind not in ("arrive", "leave"):
+            raise ValueError("kind has to be arrive or leave")
+        column = f"{kind}_text"
+        with self._lock:
+            self._conn.execute(
+                f"INSERT INTO places (key, label, {column}) VALUES (?, ?, ?) "
+                f"ON CONFLICT(key) DO UPDATE SET label = excluded.label, {column} = excluded.{column}",
+                (key, label, text),
+            )
+            self._conn.commit()
+        return self.get_place(key)
+
+    def mark_place(self, key: str, kind: str, at: datetime) -> None:
+        if kind not in ("arrive", "leave"):
+            raise ValueError("kind has to be arrive or leave")
+        with self._lock:
+            self._conn.execute(f"UPDATE places SET last_{kind}_at = ? WHERE key = ?", (_iso(at), key))
+            self._conn.commit()
+
+    def delete_place(self, key: str) -> dict | None:
+        place = self.get_place(key)
+        if place is not None:
+            with self._lock:
+                self._conn.execute("DELETE FROM places WHERE key = ?", (key,))
+                self._conn.commit()
+        return place
