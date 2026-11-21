@@ -79,6 +79,8 @@ Say or type "volume down", "volume up 20", "set volume to 30", "mute", "pause", 
 
 **Mood.** At 7:30 PM Patricia asks how your day was, with buttons from 😞 1 to 😄 5. Reply afterwards if you want to tell her more, and she saves it with the day. If you have a few hard days in a row, she checks in gently. `/mood` logs it any time.
 
+**Diary.** Patricia keeps a private diary for you. When she asks how your day was (or any time), just tell her, and she saves it under today's date in your own words. You can also tap **📓 Write in my diary** on the evening check-in to type in a big box. Each night's check-in comes with one short question to help you put a feeling into words, and `/diary prompts` gives you a few more plus some feeling words to pick from. Look back by asking ("what did I write last Friday?", "when did I last mention Syl?") or with `/diary today`, `day`, `week`, `list`, and `search`. `/diary delete` removes one entry by its number. Entries live only in `data/assistant.db` on your PC, which never goes to GitHub.
+
 **Birthdays.** "Syl's birthday is March 3" (add the year if you know it). She reminds you 3 days before and on the day at 9 AM, and they show up in the morning hello and recaps. `/birthdays add`, `list`, and `remove` work too.
 
 **Nightly recap.** When you tell her you're going to bed (or tap the 😴 button), she sends a short recap: what you got done, meds, play time, mood, and what's coming tomorrow. If you haven't said good night by 11 PM, it comes anyway. **Weekly recap** on Sundays at 7 PM: wins, meds consistency, play time, how the week felt, and what's coming next week. `/recap` shows either one any time.

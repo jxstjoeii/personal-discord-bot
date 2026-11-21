@@ -12,6 +12,8 @@ from discord import app_commands
 from discord.ext import tasks
 
 from assistant.addons.base import Addon
+from assistant.addons.diary import DiaryButton, diary_view
+from assistant.diary_core import prompts_for
 from assistant.life_core import (
     MOOD_FACES,
     birthday_line,
@@ -55,13 +57,15 @@ class MoodButton(
         cog = interaction.client.get_cog("Life")
         text = cog.log_mood(self.score, "", self.day) if cog else "Saved."
         await interaction.response.edit_message(view=None)
-        await interaction.followup.send(text)
+        text += "\n📓 Tell me more whenever you want, and I'll keep it in your diary."
+        await interaction.followup.send(text, view=diary_view(self.day))
 
 
 def mood_view(day: str) -> discord.ui.View:
     view = discord.ui.View(timeout=None)
     for score in range(1, 6):
         view.add_item(MoodButton(score, day))
+    view.add_item(DiaryButton(day))
     return view
 
 
@@ -228,8 +232,15 @@ class Life(Addon):
         day = now.date().isoformat()
         if self.bot.db.get_mood(day) or not self.bot.db.mark_daily("mood", day):
             return
-        await self._send("💭 How was today, Joeii? Tap a number, and reply if you want to tell me more.", mood_view(day))
-        self.bot.db.add_message(settings.owner_id, "assistant", "[Mood check-in sent: how was today, 1 to 5?]")
+        question = prompts_for(day, 1)[0]
+        await self._send(
+            "💭 How was today, Joeii? Tap a number, and reply if you want to tell me more. "
+            f"I'll keep it in your diary.\n📓 Tonight's question: {question}",
+            mood_view(day),
+        )
+        self.bot.db.add_message(
+            settings.owner_id, "assistant", f"[Mood check-in sent: how was today, 1 to 5? Diary question: {question}]"
+        )
 
     async def _birthday_reminders(self) -> None:
         now = datetime.now(self.bot.settings.timezone)
