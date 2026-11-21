@@ -130,6 +130,7 @@ It adds a Windows scheduled task named "Patricia Bot". She starts by herself abo
 - After `.\sync.ps1` pulls an update, run `.\restart.ps1`.
 - `.\run.ps1` still works for watching her in a window. Close that window and the background copy takes over within 5 minutes.
 - `.\install-startup.ps1 -Remove` stops her from starting by herself.
+- If you have an hourly task that runs `sync.ps1`, `.\install-startup.ps1` switches it to `sync-hidden.vbs`, so the sync runs with no window instead of flashing a command prompt every hour.
 
 ## Status
 

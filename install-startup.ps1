@@ -16,6 +16,26 @@ foreach ($task in $old) {
     Write-Host "Removed an older start-up task: $($task.TaskPath)$($task.TaskName)"
 }
 
+# The hourly GitHub sync task ran sync.ps1 through powershell.exe directly, which opens a
+# command prompt window for a moment every hour and can pull focus out of a game.
+# Point it at sync-hidden.vbs instead, which runs the same sync with no window.
+$syncVbs = Join-Path $PSScriptRoot "sync-hidden.vbs"
+$syncTasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
+    $actions = ($_.Actions | ForEach-Object { "$($_.Execute) $($_.Arguments)" }) -join " "
+    $actions -match "sync\.ps1" -and $actions -notmatch "sync-hidden\.vbs"
+})
+foreach ($task in $syncTasks) {
+    try {
+        $hidden = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$syncVbs`"" -WorkingDirectory $PSScriptRoot
+        Set-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Action $hidden | Out-Null
+        Write-Host "The hourly sync task '$($task.TaskName)' now runs with no window."
+    }
+    catch {
+        Write-Host "Couldn't change the sync task '$($task.TaskName)': $($_.Exception.Message)"
+        Write-Host "Try again from a PowerShell window opened with 'Run as administrator'."
+    }
+}
+
 if ($Remove) {
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
